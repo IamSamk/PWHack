@@ -29,9 +29,9 @@ CORE_GENES = {"CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"}
 STAR_ALLELE_DEFINITIONS: dict[str, dict] = {
     "CYP2D6": {
         "defining_variants": {
-            "rs3892097":  {"allele_map": {"A": "*4",  "G": "*1"}, "ref": "G", "impact": "splice defect — nonfunctional"},
+            "rs3892097":  {"allele_map": {"A": "*4",  "G": "*1", "T": "*4", "C": "*1"}, "ref": "G", "impact": "splice defect — nonfunctional"},
             "rs5030655":  {"allele_map": {"T": "*6",  "A": "*1"}, "ref": "A", "impact": "frameshift — nonfunctional"},
-            "rs1065852":  {"allele_map": {"A": "*10", "G": "*1"}, "ref": "G", "impact": "P34S — decreased function"},
+            "rs1065852":  {"allele_map": {"A": "*10", "G": "*1", "T": "*10", "C": "*1"}, "ref": "G", "impact": "P34S — decreased function"},
             "rs16947":    {"allele_map": {"A": "*2",  "G": "*1"}, "ref": "G", "impact": "R296C — normal function"},
             "rs28371725": {"allele_map": {"A": "*41", "G": "*1"}, "ref": "G", "impact": "splicing defect — decreased function"},
             "rs35742686": {"allele_map": {"T": "*3",  "TT": "*1"}, "ref": "TT", "impact": "frameshift — nonfunctional"},
@@ -96,7 +96,7 @@ STAR_ALLELE_DEFINITIONS: dict[str, dict] = {
     "TPMT": {
         "defining_variants": {
             "rs1800462":  {"allele_map": {"G": "*2",  "C": "*1"}, "ref": "C", "impact": "A80P — nonfunctional"},
-            "rs1800460":  {"allele_map": {"T": "*3B", "C": "*1"}, "ref": "C", "impact": "A154T — nonfunctional"},
+            "rs1800460":  {"allele_map": {"T": "*3B", "C": "*1", "A": "*3B", "G": "*1"}, "ref": "C", "impact": "A154T — nonfunctional"},
             "rs1142345":  {"allele_map": {"C": "*3C", "T": "*1"}, "ref": "T", "impact": "Y240C — nonfunctional"},
             "rs1800584":  {"allele_map": {"A": "*4",  "G": "*1"}, "ref": "G", "impact": "splice site — nonfunctional"},
         },
@@ -108,7 +108,7 @@ STAR_ALLELE_DEFINITIONS: dict[str, dict] = {
     },
     "DPYD": {
         "defining_variants": {
-            "rs3918290":  {"allele_map": {"T": "*2A", "A": "*2A", "G": "*1"}, "ref": "G", "impact": "IVS14+1G>A — nonfunctional (exon 14 skipping)"},
+            "rs3918290":  {"allele_map": {"T": "*2A", "A": "*2A", "G": "*1", "C": "*1"}, "ref": "G", "impact": "IVS14+1G>A — nonfunctional (exon 14 skipping)"},
             "rs55886062": {"allele_map": {"A": "*13", "C": "*1"}, "ref": "C", "impact": "I560S — nonfunctional"},
             "rs67376798": {"allele_map": {"A": "D949V","T": "*1"}, "ref": "T", "impact": "D949V — decreased function"},
             "rs75017182": {"allele_map": {"G": "HapB3","C": "*1"}, "ref": "C", "impact": "intronic — decreased function (haplotype B3)"},
@@ -129,13 +129,14 @@ for _gene, _gene_data in STAR_ALLELE_DEFINITIONS.items():
         _RSID_INDEX[_rsid] = {**_var_info, "gene": _gene}
 
 # Phenotype classification thresholds (activity score based)
+# CPIC: NM = activity score 1.25–2.25, RM = 2.25–2.75, URM > 2.75
 PHENOTYPE_THRESHOLDS = [
     # (max_score, phenotype_label)
-    (0.0,  "PM"),     # Poor Metabolizer
-    (0.75, "IM"),     # Intermediate Metabolizer
-    (1.25, "NM"),     # Normal Metabolizer
-    (1.75, "RM"),     # Rapid Metabolizer
-    (999,  "URM"),    # Ultrarapid Metabolizer
+    (0.0,   "PM"),     # Poor Metabolizer
+    (0.75,  "IM"),     # Intermediate Metabolizer
+    (2.25,  "NM"),     # Normal Metabolizer
+    (2.75,  "RM"),     # Rapid Metabolizer
+    (999,   "URM"),    # Ultrarapid Metabolizer
 ]
 
 

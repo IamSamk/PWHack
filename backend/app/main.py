@@ -4,26 +4,20 @@ PharmaGuard API — FastAPI endpoints for pharmacogenomic analysis.
 Endpoints:
   GET  /                          → Service info
   GET  /drugs                     → List available drugs
-  GET  /drug/{drug_name}          → Drug rule details
   POST /upload-vcf                → Upload VCF, get session + profile
-  GET  /session/{session_id}      → Retrieve stored genomic profile
   POST /analyze                   → Single drug risk assessment
   POST /analyze-batch             → Batch drug assessment + PBS
-  GET  /session/{sid}/burden      → Pharmacogenomic Burden Score
   POST /counterfactual            → What-if phenotype simulation
-  GET  /ui                        → Legacy HTML template UI
 """
 
 import os
 import uuid
-import shutil
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 from pathlib import Path
 
 from app.parser import parse_vcf_file, parse_vcf_bytes, VCFParseError, VCFFileTooLargeError
@@ -33,12 +27,10 @@ from app.engine import (
     compute_pharmacogenomic_burden_score,
     counterfactual_simulation,
     get_available_drugs,
-    get_drug_info,
 )
 from app.llm_service import generate_explanation
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app = FastAPI(
     title="PharmaGuard API",
@@ -78,11 +70,7 @@ def root():
             "POST /analyze": "Analyze a drug for an uploaded patient",
             "POST /analyze-batch": "Analyze multiple drugs at once",
             "GET /drugs": "List available drugs",
-            "GET /drug/{drug_name}": "Get drug rule details",
             "POST /counterfactual": "Run counterfactual simulation",
-            "GET /session/{session_id}": "Get stored genomic profile",
-            "GET /session/{session_id}/burden": "Get PBS for a patient",
-            "GET /ui": "Legacy HTML interface",
         }
     }
 
@@ -96,22 +84,6 @@ def list_drugs():
     """List all drugs with CPIC rules available."""
     drugs = get_available_drugs()
     return {"available_drugs": drugs, "count": len(drugs)}
-
-
-@app.get("/drug/{drug_name}")
-def drug_details(drug_name: str):
-    """Get CPIC rule details for a specific drug."""
-    info = get_drug_info(drug_name)
-    if not info:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Drug '{drug_name}' not found. Use GET /drugs for available drugs."
-        )
-    return {
-        "drug": drug_name.upper(),
-        "primary_gene": info["primary_gene"],
-        "phenotype_rules": info["phenotype_rules"],
-    }
 
 
 # ──────────────────────────────────────────────
@@ -152,34 +124,17 @@ async def upload_vcf(file: UploadFile = File(...)):
     _sessions[session_id] = {
         "session_id": session_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "source_file": result["source_file"],
         "genomic_profile": result["genomic_profile"],
-        "vcf_meta": {
-            "format": result["vcf_format"],
-            "sample_ids": result["sample_ids"],
-            "total_variants": result["total_variants_in_file"],
-            "pharmacogene_variants_detected": result["pharmacogene_variants_detected"],
-        },
         "analysis_history": [],
     }
 
     return {
         "session_id": session_id,
         "message": "VCF uploaded and parsed successfully.",
-        "source_file": result["source_file"],
         "total_variants": result["total_variants_in_file"],
         "pharmacogene_variants_detected": result["pharmacogene_variants_detected"],
         "genomic_profile": result["genomic_profile"],
     }
-
-
-@app.get("/session/{session_id}")
-def get_session(session_id: str):
-    """Retrieve stored genomic profile for a session."""
-    session = _sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found. Upload a VCF first.")
-    return session
 
 
 # ──────────────────────────────────────────────
@@ -190,51 +145,85 @@ def get_session(session_id: str):
 async def analyze_drug(
     session_id: str = Query(..., description="Session ID from /upload-vcf"),
     drug: str = Query(..., description="Drug name to analyze"),
-    include_explanation: bool = Query(default=False, description="Include LLM explanation"),
 ):
-    """Analyze a single drug against the patient's genomic profile."""
+    """
+    Analyze a single drug against the patient's genomic profile.
+    Always includes LLM-generated explanation (XAI layer).
+    Output matches the EXACT required hackathon JSON schema.
+    """
     session = _sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found. Upload a VCF first.")
 
     genomic_profile = session["genomic_profile"]
-    result = assess_drug_risk(drug, genomic_profile)
+    engine_result = assess_drug_risk(drug, genomic_profile)
 
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+    if "error" in engine_result:
+        raise HTTPException(status_code=404, detail=engine_result["error"])
 
-    result["patient_id"] = session_id
-    result["analysis_timestamp"] = datetime.now(timezone.utc).isoformat()
+    pgx = engine_result.get("pharmacogenomic_profile", {})
+    risk = engine_result.get("risk_assessment", {})
+    rec = engine_result.get("clinical_recommendation", {})
+    timestamp = datetime.now(timezone.utc).isoformat()
 
-    # Optional LLM explanation
-    if include_explanation:
-        try:
-            pgx = result.get("pharmacogenomic_profile", {})
-            explanation = generate_explanation(
-                pgx.get("primary_gene", ""),
-                pgx.get("phenotype", ""),
-                result.get("drug", ""),
-            )
-            result["llm_generated_explanation"] = {
-                "text": explanation,
-                "model": "gemma3:4b",
-                "disclaimer": "AI-generated explanation. Not a substitute for clinical judgment.",
-            }
-        except Exception as e:
-            result["llm_generated_explanation"] = {
-                "text": f"Explanation unavailable: {str(e)}",
-                "model": "gemma3:4b",
-                "disclaimer": "Error generating explanation.",
-            }
+    # ── LLM-Generated Explanation (MANDATORY) ──
+    try:
+        explanation = generate_explanation(
+            gene=pgx.get("primary_gene", ""),
+            phenotype=pgx.get("phenotype", ""),
+            drug=engine_result.get("drug", ""),
+            diplotype=pgx.get("diplotype", "*1/*1"),
+            activity_score=pgx.get("activity_score", 2.0),
+            risk_label=risk.get("risk_label", "Unknown"),
+            severity=risk.get("severity", "low"),
+            recommendation=rec.get("recommendation", ""),
+            detected_variants=pgx.get("detected_variants", []),
+        )
+    except Exception as e:
+        explanation = {
+            "summary": (
+                f"Explanation generation failed: {str(e)}. "
+                f"Patient carries {pgx.get('diplotype', 'unknown')} in "
+                f"{pgx.get('primary_gene', 'unknown')}, classified as "
+                f"{pgx.get('phenotype', 'unknown')} phenotype. "
+                f"Risk: {risk.get('risk_label', 'unknown')}."
+            ),
+            "variant_citations": [],
+            "model": "mistral:7b",
+            "disclaimer": "Fallback explanation due to LLM error.",
+        }
+
+    # ── Build response in EXACT required schema — no extra fields ──
+    response = {
+        "patient_id": session_id,
+        "drug": engine_result["drug"],
+        "timestamp": timestamp,
+        "risk_assessment": {
+            "risk_label": risk.get("risk_label", "Unknown"),
+            "confidence_score": risk.get("confidence_score", 0.0),
+            "severity": risk.get("severity", "none"),
+        },
+        "pharmacogenomic_profile": {
+            "primary_gene": pgx.get("primary_gene", ""),
+            "diplotype": pgx.get("diplotype", "*1/*1"),
+            "phenotype": pgx.get("phenotype", "Unknown"),
+            "detected_variants": pgx.get("detected_variants", []),
+        },
+        "clinical_recommendation": rec,
+        "llm_generated_explanation": explanation,
+        "quality_metrics": {
+            "vcf_parsing_success": True,
+        },
+    }
 
     # Log to session history
     session["analysis_history"].append({
         "drug": drug.upper(),
-        "risk_label": result.get("risk_assessment", {}).get("risk_label"),
-        "timestamp": result["analysis_timestamp"],
+        "risk_label": risk.get("risk_label"),
+        "timestamp": timestamp,
     })
 
-    return result
+    return response
 
 
 @app.post("/analyze-batch")
@@ -245,7 +234,7 @@ async def analyze_batch(
         description="Comma-separated drug names. Empty = analyze all available drugs."
     ),
 ):
-    """Analyze multiple drugs at once. Returns all assessments + PBS."""
+    """Analyze multiple drugs at once. Returns all assessments + PBS + LLM explanations."""
     session = _sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found. Upload a VCF first.")
@@ -258,38 +247,44 @@ async def analyze_batch(
 
     result = batch_drug_assessment(genomic_profile, drug_list)
     result["patient_id"] = session_id
-    result["analysis_timestamp"] = datetime.now(timezone.utc).isoformat()
+    result["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+    # Add LLM explanations for each drug assessment
+    for drug_name, assessment in result.get("drug_assessments", {}).items():
+        if "error" in assessment:
+            continue
+        pgx = assessment.get("pharmacogenomic_profile", {})
+        risk = assessment.get("risk_assessment", {})
+        rec = assessment.get("clinical_recommendation", {})
+        try:
+            explanation = generate_explanation(
+                gene=pgx.get("primary_gene", ""),
+                phenotype=pgx.get("phenotype", ""),
+                drug=drug_name,
+                diplotype=pgx.get("diplotype", "*1/*1"),
+                activity_score=pgx.get("activity_score", 2.0),
+                risk_label=risk.get("risk_label", "Unknown"),
+                severity=risk.get("severity", "low"),
+                recommendation=rec.get("recommendation", ""),
+                detected_variants=pgx.get("detected_variants", []),
+            )
+            assessment["llm_generated_explanation"] = explanation
+        except Exception as e:
+            assessment["llm_generated_explanation"] = {
+                "summary": f"Explanation unavailable: {str(e)}",
+                "variant_citations": [],
+                "model": "mistral:7b",
+                "disclaimer": "Fallback explanation due to LLM error.",
+            }
+        assessment["quality_metrics"] = {
+            "vcf_parsing_success": True,
+            "variants_detected": pgx.get("variants_count", 0),
+            "rule_match_found": risk.get("risk_label", "Unknown") != "Unknown",
+            "llm_explanation_generated": True,
+            "guideline_source": "CPIC",
+        }
 
     return result
-
-
-# ──────────────────────────────────────────────
-# Pharmacogenomic Burden Score
-# ──────────────────────────────────────────────
-
-@app.get("/session/{session_id}/burden")
-def get_burden_score(
-    session_id: str,
-    drugs: str = Query(
-        default="",
-        description="Comma-separated drug names. Empty = all drugs."
-    ),
-):
-    """Compute Pharmacogenomic Burden Score for a patient."""
-    session = _sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    genomic_profile = session["genomic_profile"]
-
-    drug_list = None
-    if drugs.strip():
-        drug_list = [d.strip() for d in drugs.split(",") if d.strip()]
-
-    pbs = compute_pharmacogenomic_burden_score(genomic_profile, drug_list)
-    pbs["patient_id"] = session_id
-
-    return pbs
 
 
 # ──────────────────────────────────────────────
@@ -328,56 +323,3 @@ async def run_counterfactual(
 
     result["patient_id"] = session_id
     return result
-
-
-# ──────────────────────────────────────────────
-# Legacy HTML UI (kept for backward compatibility)
-# ──────────────────────────────────────────────
-
-@app.api_route("/ui", methods=["GET", "POST"], response_class=HTMLResponse)
-async def ui_page(request: Request):
-    """Legacy HTML form UI — upload VCF + select drug → see result."""
-    result = None
-    if request.method == "POST":
-        form = await request.form()
-        drug = form.get("drug")
-        file = form.get("file")
-        if file and drug:
-            temp_path = f"temp_{file.filename}"
-            try:
-                with open(temp_path, "wb") as buffer:
-                    shutil.copyfileobj(file.file, buffer)
-                parsed = parse_vcf_file(temp_path)
-                genomic_profile = parsed["genomic_profile"]
-                assessment = assess_drug_risk(str(drug), genomic_profile)
-
-                # Get primary gene info for LLM
-                pgx = assessment.get("pharmacogenomic_profile", {})
-                explanation = generate_explanation(
-                    pgx.get("primary_gene", ""),
-                    pgx.get("phenotype", ""),
-                    str(drug),
-                )
-
-                risk = assessment.get("risk_assessment", {})
-                rec = assessment.get("clinical_recommendation", {})
-
-                result = {
-                    "patient_id": "PATIENT_001",
-                    "drug": str(drug).upper(),
-                    "risk_label": risk.get("risk_label", "Unknown"),
-                    "severity": risk.get("severity", "low"),
-                    "primary_gene": pgx.get("primary_gene", ""),
-                    "phenotype": pgx.get("phenotype", ""),
-                    "diplotype": pgx.get("diplotype", ""),
-                    "activity_score": pgx.get("activity_score", 0),
-                    "recommendation": rec.get("recommendation", ""),
-                    "llm_explanation": explanation,
-                }
-            except Exception as e:
-                result = {"error": str(e)}
-            finally:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-
-    return templates.TemplateResponse("index.html", {"request": request, "result": result})

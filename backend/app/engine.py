@@ -151,7 +151,7 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
         "risk_assessment": {
             "risk_label": risk_label,
             "severity": severity,
-            "confidence": confidence,
+            "confidence_score": confidence,
             "evidence_level": evidence_level,
         },
         "pharmacogenomic_profile": {
