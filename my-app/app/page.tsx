@@ -16,8 +16,9 @@ import PipelineFlowchart from "./components/PipelineFlowchart";
 import DrugReportCard from "./components/DrugReportCard";
 import ResultCarousel from "./components/ResultCarousel";
 import JSONViewer from "./components/JSONViewer";
+import ReportExporter from "./components/ReportExporter";
 
-import { analyzeDrug, APIError } from "./lib/api";
+import { analyzeMultipleDrugs, APIError } from "./lib/api";
 import type {
   PipelineStep,
   DrugAnalysisResult,
@@ -105,35 +106,29 @@ export default function Home() {
       await animateStep("star", "Inferring star alleles...");
       await animateStep("phenotype", "Assigning metabolizer phenotypes...");
 
-      // Analyze each drug
-      const allResults: DrugAnalysisResult[] = [];
+      const drugLabel = selectedDrugs.join(", ");
+      setCurrentDrug(drugLabel);
 
-      for (const drug of selectedDrugs) {
-        setCurrentDrug(drug);
-        updateStep("cpic", "active", `Applying CPIC rules for ${drug}...`);
-        await new Promise(r => setTimeout(r, 300));
-        updateStep("cpic", "completed", `CPIC rule matched for ${drug}`);
+      updateStep("cpic", "active", `Applying CPIC rules for ${drugLabel}...`);
+      await new Promise(r => setTimeout(r, 300));
+      updateStep("cpic", "completed", `CPIC rules matched for ${selectedDrugs.length} drug(s)`);
 
-        updateStep("risk", "active", `Classifying risk for ${drug}...`);
-        await new Promise(r => setTimeout(r, 200));
+      updateStep("risk", "active", `Classifying risk scores...`);
+      setLlmLoading(true);
+      updateStep("llm", "active", `Generating explanations via Groq Llama 3.3...`);
 
-        setLlmLoading(true);
-        updateStep("llm", "active", `Generating explanation for ${drug} via Groq Llama 3.3...`);
+      // ── Single batch request — VCF parsed once, all drugs run in parallel server-side ──
+      const batch = await analyzeMultipleDrugs(vcfFile, selectedDrugs);
 
-        try {
-          const result = await analyzeDrug(vcfFile, drug);
-          allResults.push(result);
+      updateStep("risk", "completed", `Risk classified for ${batch.total} drug(s)`);
+      updateStep("llm", "completed", `Explanations generated for ${batch.total} drug(s)`);
+      setLlmLoading(false);
+      setDrugResults(batch.results);
 
-          updateStep("risk", "completed", `${drug}: ${result.risk_assessment.risk_label} (${result.risk_assessment.severity})`);
-          updateStep("llm", "completed", `Explanation generated for ${drug}`);
-          setDrugResults([...allResults]);
-          setLlmLoading(false);
-        } catch (err) {
-          const msg = err instanceof APIError ? err.detail : String(err);
-          updateStep("risk", "completed", `${drug}: Error — ${msg}`);
-          updateStep("llm", "completed", `Skipped — ${msg}`);
-          setLlmLoading(false);
-        }
+      // Surface any per-drug errors as a warning (not a fatal stop)
+      if (batch.errors.length > 0) {
+        const msgs = batch.errors.map(e => `${e.drug}: ${e.error}`).join(" | ");
+        setError(`Some drugs were skipped: ${msgs}`);
       }
 
       setCurrentDrug("");
@@ -146,6 +141,7 @@ export default function Home() {
       const msg = err instanceof APIError ? err.detail : String(err);
       setError(msg);
       setPhase("input");
+      setLlmLoading(false);
     }
   }, [vcfFile, selectedDrugs, animateStep, updateStep, resetSteps]);
 
@@ -170,7 +166,7 @@ export default function Home() {
     <div className="min-h-screen">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-card-border bg-background/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-[rgba(6,182,212,0.1)]">
               <Dna className="w-5 h-5 text-accent" />
@@ -195,7 +191,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 py-6">
         {/* ── Error Banner ── */}
         {error && (
           <div className="mb-6 flex items-start gap-3 px-4 py-3 rounded-xl border border-danger/30 bg-[rgba(239,68,68,0.05)] animate-fade-slide-up">
@@ -215,7 +211,7 @@ export default function Home() {
 
         {/* ── INPUT PHASE ── */}
         {phase === "input" && (
-          <div className="max-w-2xl mx-auto space-y-6 animate-fade-slide-up">
+          <div className="max-w-xl mx-auto space-y-6 animate-fade-slide-up">
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(6,182,212,0.08)] text-accent text-xs font-medium mb-4">
                 <Dna className="w-3.5 h-3.5" />
@@ -329,6 +325,13 @@ export default function Home() {
                 </div>
               )}
 
+              {/* Export + JSON toolbar — only when analysis is complete */}
+              {phase === "results" && drugResults.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <ReportExporter results={drugResults} />
+                </div>
+              )}
+
               {/* JSON Output */}
               {jsonPayload && phase === "results" && (
                 <div>
@@ -355,7 +358,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-card-border mt-16">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-muted">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between text-xs text-muted">
           <span>PharmaGuard v2.0 — Precision Pharmacogenomic Risk Engine</span>
           <span>CPIC Guidelines • Groq Llama 3.3 XAI • RIFT 2026</span>
         </div>

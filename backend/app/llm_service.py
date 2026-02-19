@@ -52,6 +52,7 @@ EXPLANATION_TEMPLATE = (
     "Drug: {drug}\n"
     "Risk Label: {risk_label}\n"
     "Severity: {severity}\n"
+    "Confidence Score: {confidence_score:.2f} (0.0 = no supporting evidence, 1.0 = fully confirmed)\n"
     "CPIC Recommendation: {recommendation}\n"
     "Detected Variants:\n{variant_details}\n"
     "=== END FACTS ===\n\n"
@@ -60,7 +61,10 @@ EXPLANATION_TEMPLATE = (
     "2. VARIANT IMPACT: How the patient's specific variants ({diplotype}) lead to the "
     "{phenotype} phenotype and activity score of {activity_score}.\n"
     "3. RISK: Why this results in a '{risk_label}' risk classification with '{severity}' severity.\n"
-    "4. ACTION: Summarize the clinical recommendation in plain language.\n\n"
+    "4. ACTION: Summarize the clinical recommendation in plain language.\n"
+    "5. CONFIDENCE: In one sentence, explain why the confidence score is {confidence_score:.2f} — "
+    "consider: whether actionable variants were detected, how unambiguous the activity score is, "
+    "and whether the diplotype was directly observed or inferred from defaults.\n\n"
     "Rules:\n"
     "- Reference specific rsIDs and star alleles from the variant data.\n"
     "- Use clinical terminology but remain accessible to a non-specialist.\n"
@@ -93,6 +97,7 @@ def generate_explanation(
     drug: str,
     diplotype: str = "*1/*1",
     activity_score: float = 2.0,
+    confidence_score: float = 0.75,
     risk_label: str = "Normal",
     severity: str = "low",
     recommendation: str = "No specific recommendation.",
@@ -158,6 +163,7 @@ def generate_explanation(
             phenotype=phenotype,
             diplotype=diplotype,
             activity_score=activity_score,
+            confidence_score=confidence_score,
             drug=drug,
             risk_label=risk_label,
             severity=severity,

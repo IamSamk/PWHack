@@ -1,9 +1,11 @@
 """
-PharmaGuard API - Single endpoint for pharmacogenomic analysis.
+PharmaGuard API
 
-POST /analyze -> Upload VCF + drug name -> full risk assessment + LLM explanation + pathway
+POST /analyze        -> Single drug analysis (backward-compatible)
+POST /analyze/batch  -> Multiple drugs in one request (comma-separated or list)
 """
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -23,7 +25,6 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -35,18 +36,15 @@ async def analyze(
     drug: str = Form(...),
 ):
     """
-    Single endpoint: Upload VCF file + drug name → full risk analysis.
-    Returns the EXACT hackathon JSON schema:
-      patient_id, drug, timestamp, risk_assessment, pharmacogenomic_profile,
-      clinical_recommendation, llm_generated_explanation, quality_metrics
+    Single drug analysis.  Upload VCF + one drug name.
+    Returns the canonical hackathon JSON schema.
     """
-    # ── Validate file ──
+    # ── Validate + parse file ──
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided.")
     if not file.filename.lower().endswith((".vcf", ".vcf.gz")):
         raise HTTPException(status_code=400, detail="File must be a .vcf file.")
 
-    # ── Parse VCF ──
     try:
         data = await file.read()
     except Exception as e:
@@ -63,46 +61,19 @@ async def analyze(
 
     genomic_profile = parsed["genomic_profile"]
 
-    # ── Run risk engine ──
-    engine_result = assess_drug_risk(drug, genomic_profile)
-    if "error" in engine_result:
-        raise HTTPException(status_code=404, detail=engine_result["error"])
+    result = await _analyze_drug_from_profile(drug, genomic_profile)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
 
+
+# ── Shared helpers ─────────────────────────────────────────────────────────────
+
+def _build_response(engine_result: dict, pathway: list, explanation: dict) -> dict:
+    """Serialise a single drug result into the canonical hackathon JSON schema."""
     pgx = engine_result.get("pharmacogenomic_profile", {})
     risk = engine_result.get("risk_assessment", {})
     rec = engine_result.get("clinical_recommendation", {})
-
-    # ── Generate pathway steps ──
-    pathway = generate_pathway_steps(drug, engine_result)
-
-    # ── LLM explanation ──
-    try:
-        explanation = generate_explanation(
-            gene=pgx.get("primary_gene", ""),
-            phenotype=pgx.get("phenotype", ""),
-            drug=engine_result.get("drug", ""),
-            diplotype=pgx.get("diplotype", "*1/*1"),
-            activity_score=pgx.get("activity_score", 2.0),
-            risk_label=risk.get("risk_label", "Unknown"),
-            severity=risk.get("severity", "low"),
-            recommendation=rec.get("recommendation", ""),
-            detected_variants=pgx.get("detected_variants", []),
-        )
-    except Exception as e:
-        explanation = {
-            "summary": (
-                f"Explanation generation failed: {e}. "
-                f"Patient carries {pgx.get('diplotype', 'unknown')} in "
-                f"{pgx.get('primary_gene', 'unknown')}, classified as "
-                f"{pgx.get('phenotype', 'unknown')} phenotype. "
-                f"Risk: {risk.get('risk_label', 'unknown')}."
-            ),
-            "variant_citations": [],
-            "model": "llama-3.3-70b-versatile",
-            "disclaimer": "Fallback explanation due to LLM error.",
-        }
-
-    # ── Build EXACT response schema ──
     return {
         "patient_id": str(uuid.uuid4()),
         "drug": engine_result["drug"],
@@ -116,6 +87,7 @@ async def analyze(
             "primary_gene": pgx.get("primary_gene", ""),
             "diplotype": pgx.get("diplotype", "*1/*1"),
             "phenotype": pgx.get("phenotype", "Unknown"),
+            "activity_score": pgx.get("activity_score", 2.0),
             "detected_variants": pgx.get("detected_variants", []),
         },
         "clinical_recommendation": rec,
@@ -124,4 +96,122 @@ async def analyze(
         "quality_metrics": {
             "vcf_parsing_success": True,
         },
+    }
+
+
+async def _analyze_drug_from_profile(drug: str, genomic_profile: dict) -> dict:
+    """
+    Run the full engine + LLM pipeline for a single drug against an
+    already-parsed genomic profile.  Used by both /analyze and /analyze/batch.
+    """
+    drug_upper = drug.strip().upper()
+    engine_result = assess_drug_risk(drug_upper, genomic_profile)
+    if "error" in engine_result:
+        # Return a structured error entry instead of raising so batch doesn't abort
+        return {"drug": drug_upper, "error": engine_result["error"]}
+
+    pgx = engine_result.get("pharmacogenomic_profile", {})
+    risk = engine_result.get("risk_assessment", {})
+    rec = engine_result.get("clinical_recommendation", {})
+
+    pathway = generate_pathway_steps(drug_upper, engine_result)
+
+    try:
+        explanation = generate_explanation(
+            gene=pgx.get("primary_gene", ""),
+            phenotype=pgx.get("phenotype", ""),
+            drug=engine_result.get("drug", ""),
+            diplotype=pgx.get("diplotype", "*1/*1"),
+            activity_score=pgx.get("activity_score", 2.0),
+            confidence_score=risk.get("confidence_score", 0.0),
+            risk_label=risk.get("risk_label", "Unknown"),
+            severity=risk.get("severity", "low"),
+            recommendation=rec.get("recommendation", ""),
+            detected_variants=pgx.get("detected_variants", []),
+        )
+    except Exception as e:
+        explanation = {
+            "summary": (
+                f"Patient carries {pgx.get('diplotype', 'unknown')} in "
+                f"{pgx.get('primary_gene', 'unknown')}, classified as "
+                f"{pgx.get('phenotype', 'unknown')} phenotype. "
+                f"Risk: {risk.get('risk_label', 'unknown')}. "
+                f"[LLM unavailable: {e}]"
+            ),
+            "variant_citations": [],
+            "model": "llama-3.3-70b-versatile",
+            "disclaimer": "Fallback explanation due to LLM error.",
+        }
+
+    return _build_response(engine_result=engine_result, pathway=pathway, explanation=explanation)
+
+
+# ── /analyze/batch ─────────────────────────────────────────────────────────────
+
+
+@app.post("/analyze/batch")
+async def analyze_batch(
+    file: UploadFile = File(...),
+    drugs: str = Form(...),
+):
+    """
+    Batch endpoint: Upload VCF once + comma-separated drug list.
+    Runs all drugs in parallel and returns an array of results.
+
+    Body (multipart/form-data):
+      file  — VCF or VCF.GZ
+      drugs — comma-separated list, e.g. "CODEINE,WARFARIN,SIMVASTATIN"
+
+    Response:
+      { "results": [...], "total": N, "errors": [...] }
+    """
+    # ── Validate + parse file (once) ──
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided.")
+    if not file.filename.lower().endswith((".vcf", ".vcf.gz")):
+        raise HTTPException(status_code=400, detail="File must be a .vcf file.")
+
+    try:
+        data = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read file: {e}")
+
+    try:
+        parsed = parse_vcf_bytes(data, filename=file.filename)
+    except VCFFileTooLargeError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+    except VCFParseError as e:
+        raise HTTPException(status_code=422, detail=f"VCF parse error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+    genomic_profile = parsed["genomic_profile"]
+
+    # ── Parse drug list ──
+    drug_list = [d.strip().upper() for d in drugs.split(",") if d.strip()]
+    if not drug_list:
+        raise HTTPException(status_code=400, detail="No drug names provided.")
+    if len(drug_list) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 drugs per batch request.")
+
+    # ── Run all drugs in parallel ──
+    task_results = await asyncio.gather(
+        *[_analyze_drug_from_profile(drug, genomic_profile) for drug in drug_list],
+        return_exceptions=True,
+    )
+
+    results = []
+    errors = []
+    for drug, outcome in zip(drug_list, task_results):
+        if isinstance(outcome, Exception):
+            errors.append({"drug": drug, "error": str(outcome)})
+        elif isinstance(outcome, dict) and "error" in outcome:
+            errors.append(outcome)
+        else:
+            results.append(outcome)
+
+    return {
+        "results": results,
+        "total": len(results),
+        "errors": errors,
     }

@@ -34,6 +34,7 @@ export interface PharmacogenomicProfile {
   primary_gene: string;
   diplotype: string;
   phenotype: string;
+  activity_score?: number;
   detected_variants: DetectedVariant[];
 }
 
@@ -66,6 +67,12 @@ export interface DrugAnalysisResult {
   llm_generated_explanation: LLMExplanation;
   pathway?: PathwayStep[];
   quality_metrics: QualityMetrics;
+}
+
+export interface BatchAnalysisResult {
+  results: DrugAnalysisResult[];
+  total: number;
+  errors: Array<{ drug: string; error: string }>;
 }
 
 // Pipeline step states for the animated flowchart
