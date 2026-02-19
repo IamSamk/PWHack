@@ -46,19 +46,19 @@ export default function DrugReportCard({ result }: DrugReportCardProps) {
     <div className={`border rounded-2xl overflow-hidden ${config.bg} ${config.ring}`}>
 
       {/* ── Header ── */}
-      <div className="px-6 py-5 flex items-center gap-4">
-        <Icon className={`w-7 h-7 flex-shrink-0 ${config.color}`} />
+      <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap items-start gap-3 sm:gap-4">
+        <Icon className={`w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0 mt-0.5 ${config.color}`} />
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="text-xl font-bold tracking-tight">{result.drug}</h3>
-            <span className={`px-3 py-0.5 text-xs font-bold rounded-full uppercase tracking-widest ${config.color} ${config.bg} border ${config.ring}`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg sm:text-xl font-bold tracking-tight">{result.drug}</h3>
+            <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-widest ${config.color} ${config.bg} border ${config.ring}`}>
               {risk.risk_label}
             </span>
             <span className="text-xs text-muted">{risk.severity} severity</span>
           </div>
 
-          <div className="flex flex-wrap gap-5 mt-2.5 text-xs">
+          <div className="flex flex-wrap gap-3 sm:gap-5 mt-2 text-xs">
             <span className="flex items-center gap-1.5">
               <Dna className="w-3.5 h-3.5 text-accent" />
               <span className="text-muted">Gene</span>
@@ -75,8 +75,8 @@ export default function DrugReportCard({ result }: DrugReportCardProps) {
           </div>
         </div>
 
-        {/* Confidence ring */}
-        <div className="flex flex-col items-center flex-shrink-0">
+        {/* Confidence ring — pushed to its own row on very small screens */}
+        <div className="flex flex-col items-center flex-shrink-0 ml-auto sm:ml-0">
           <div className="relative w-14 h-14">
             <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
               <circle cx="28" cy="28" r="21" fill="none" stroke="currentColor" strokeWidth="4" className="text-card-border" />

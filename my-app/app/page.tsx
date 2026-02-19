@@ -217,7 +217,7 @@ export default function Home() {
                 <Dna className="w-3.5 h-3.5" />
                 CPIC-Aligned Analysis
               </div>
-              <h2 className="text-2xl font-bold">
+              <h2 className="text-xl sm:text-2xl font-bold">
                 Pharmacogenomic Risk Assessment
               </h2>
               <p className="text-sm text-muted mt-2 max-w-lg mx-auto">
@@ -271,24 +271,27 @@ export default function Home() {
         {/* ── PROCESSING / RESULTS PHASE ── */}
         {(phase === "processing" || phase === "results") && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* LEFT: Pipeline Flowchart */}
-            <div className="lg:col-span-4">
-              <div className="sticky top-20">
-                <div className="border border-card-border rounded-xl p-5 bg-card/50">
-                  <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            {/* Pipeline — below content on mobile, left column on desktop */}
+            <div className="order-2 lg:order-1 lg:col-span-4">
+              <div className="lg:sticky lg:top-20">
+                <details className="lg:open" open>
+                  <summary className="flex items-center gap-2 cursor-pointer list-none lg:pointer-events-none px-1 pb-3 text-sm font-semibold">
                     <Dna className="w-4 h-4 text-accent" />
                     Analysis Pipeline
-                  </h3>
-                  <PipelineFlowchart
-                    steps={steps}
-                    currentDrug={currentDrug}
-                  />
-                </div>
+                    <span className="ml-auto lg:hidden text-xs text-muted">(tap to expand)</span>
+                  </summary>
+                  <div className="border border-card-border rounded-xl p-5 bg-card/50">
+                    <PipelineFlowchart
+                      steps={steps}
+                      currentDrug={currentDrug}
+                    />
+                  </div>
+                </details>
               </div>
             </div>
 
-            {/* RIGHT: Results */}
-            <div ref={resultsRef} className="lg:col-span-8 space-y-6">
+            {/* Results — first on mobile */}
+            <div ref={resultsRef} className="order-1 lg:order-2 lg:col-span-8 space-y-6">
               {isProcessing && drugResults.length === 0 && (
                 <div className="flex items-center gap-3 px-5 py-4 rounded-xl border border-card-border bg-card/50">
                   <Loader2 className="w-5 h-5 text-accent animate-spin" />

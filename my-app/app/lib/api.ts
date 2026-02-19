@@ -1,6 +1,6 @@
 // ── PharmaGuard API Client ──
 
-import type { DrugAnalysisResult, BatchAnalysisResult } from "./types";
+import type { BatchAnalysisResult } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -39,26 +39,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 /**
- * Analyze a single drug against a VCF file.
- * Sends file + drug as multipart form to POST /analyze.
- */
-export async function analyzeDrug(
-  file: File,
-  drug: string
-): Promise<DrugAnalysisResult> {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("drug", drug.toUpperCase());
-  return request<DrugAnalysisResult>("/analyze", {
-    method: "POST",
-    body: form,
-  });
-}
-
-/**
- * Analyze multiple drugs against a VCF file in one request.
- * Sends file + comma-separated drug list to POST /analyze/batch.
- * The VCF is parsed once server-side; all drugs run in parallel.
+ * Analyze one or more drugs against a VCF file in one request.
+ * VCF is parsed once server-side; all drugs run in parallel.
+ *
+ * Sends file + repeated `drugs` form fields to POST /analyze.
  */
 export async function analyzeMultipleDrugs(
   file: File,
@@ -66,9 +50,9 @@ export async function analyzeMultipleDrugs(
 ): Promise<BatchAnalysisResult> {
   const form = new FormData();
   form.append("file", file);
-  // Send each drug as a separate form field so FastAPI receives List[str]
+  // Repeated fields — FastAPI receives List[str]
   drugs.forEach((d) => form.append("drugs", d.toUpperCase()));
-  return request<BatchAnalysisResult>("/analyze/batch", {
+  return request<BatchAnalysisResult>("/analyze", {
     method: "POST",
     body: form,
   });

@@ -1,8 +1,7 @@
 """
 PharmaGuard API
 
-POST /analyze        -> Single drug analysis (backward-compatible)
-POST /analyze/batch  -> Multiple drugs in one request (comma-separated or list)
+POST /analyze  -> One or more drugs in a single request (List[str] drugs form field)
 """
 
 import asyncio
@@ -29,43 +28,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.post("/analyze")
-async def analyze(
-    file: UploadFile = File(...),
-    drug: str = Form(...),
-):
-    """
-    Single drug analysis.  Upload VCF + one drug name.
-    Returns the canonical hackathon JSON schema.
-    """
-    # ── Validate + parse file ──
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided.")
-    if not file.filename.lower().endswith((".vcf", ".vcf.gz")):
-        raise HTTPException(status_code=400, detail="File must be a .vcf file.")
-
-    try:
-        data = await file.read()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not read file: {e}")
-
-    try:
-        parsed = parse_vcf_bytes(data, filename=file.filename)
-    except VCFFileTooLargeError as e:
-        raise HTTPException(status_code=413, detail=str(e))
-    except VCFParseError as e:
-        raise HTTPException(status_code=422, detail=f"VCF parse error: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
-
-    genomic_profile = parsed["genomic_profile"]
-
-    result = await _analyze_drug_from_profile(drug, genomic_profile)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -132,18 +94,22 @@ async def _analyze_drug_from_profile(drug: str, genomic_profile: dict) -> dict:
             detected_variants=pgx.get("detected_variants", []),
             quality_flags=pgx.get("quality_flags", []),
         )
-    except Exception as e:
+    except Exception:
+        gene_name = pgx.get('primary_gene', 'the relevant gene')
+        diplotype_val = pgx.get('diplotype', '*1/*1')
+        phenotype_val = pgx.get('phenotype', 'Unknown')
+        risk_label_val = risk.get('risk_label', 'Unknown')
+        cpic_rec = rec.get('recommendation', '')
         explanation = {
             "summary": (
-                f"Patient carries {pgx.get('diplotype', 'unknown')} in "
-                f"{pgx.get('primary_gene', 'unknown')}, classified as "
-                f"{pgx.get('phenotype', 'unknown')} phenotype. "
-                f"Risk: {risk.get('risk_label', 'unknown')}. "
-                f"[LLM unavailable: {e}]"
+                f"This patient carries the {diplotype_val} diplotype in {gene_name}, "
+                f"corresponding to a {phenotype_val} Metabolizer phenotype. "
+                f"Based on CPIC guidelines, the risk classification for this drug is '{risk_label_val}'. "
+                + (cpic_rec if cpic_rec else "Consult the Clinical Recommendation section below for dosing guidance.")
             ),
             "variant_citations": [],
             "model": "llama-3.3-70b-versatile",
-            "disclaimer": "Fallback explanation due to LLM error.",
+            "disclaimer": "AI narrative temporarily unavailable. Summary derived from CPIC deterministic data.",
         }
 
     return _build_response(engine_result=engine_result, pathway=pathway, explanation=explanation)
@@ -152,20 +118,20 @@ async def _analyze_drug_from_profile(drug: str, genomic_profile: dict) -> dict:
 # ── /analyze/batch ─────────────────────────────────────────────────────────────
 
 
-@app.post("/analyze/batch")
-async def analyze_batch(
+@app.post("/analyze")
+async def analyze(
     file: UploadFile = File(...),
     drugs: List[str] = Form(...),
 ):
     """
-    Batch endpoint: Upload VCF once + list of drug names.
-    Accepts repeated form fields OR a single comma-separated value.
-    Runs all drugs in parallel; returns array of results.
+    Unified analysis endpoint: Upload VCF + one or more drug names.
+    Accepts repeated form fields (drugs=CODEINE&drugs=WARFARIN)
+    OR a single comma-separated value (drugs=CODEINE,WARFARIN).
+    Runs all drugs in parallel against a single VCF parse.
 
     Body (multipart/form-data):
       file  — VCF or VCF.GZ
-      drugs — one field per drug, e.g. drugs=CODEINE&drugs=WARFARIN
-               OR single comma-separated: drugs=CODEINE,WARFARIN
+      drugs — repeated field per drug, or comma-separated string
 
     Response:
       { "results": [...], "total": N, "errors": [...] }
