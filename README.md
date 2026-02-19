@@ -163,38 +163,38 @@ Components:
 ## Clone Repository
 
 bash
-git clone https://github.com/your-repo/pharmaguard.git
-cd PWHack-main
+-git clone https://github.com/your-repo/pharmaguard.git
+-cd PWHack-main
 
 # 8. Backend setup
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+-cd backend
+-python -m venv venv
+-source venv/bin/activate  # Windows: venv\Scripts\activate
+-pip install -r requirements.txt
 
 # 9. Start backend
-uvicorn app.main:app --reload
+-uvicorn app.main:app --reload
 
 # 10. Backend runs at 
-http://127.0.0.1:8000
+=http://127.0.0.1:8000
 
 # 11. Frontend Setup
-cd ../my-app
-npm install
-npm run dev
+-cd ../my-app
+-npm install
+-npm run dev
 
 # 12. Frontend runs at
-http://localhost:3000
+-http://localhost:3000
 
 # 13. Evironment variable
-Create .env file in backend:
-OPENAI_API_KEY=your_openai_api_key
-MODEL_NAME=gpt-4
-CONFIDENCE_THRESHOLD=0.75
+-Create .env file in backend:
+-OPENAI_API_KEY=your_openai_api_key
+-MODEL_NAME=gpt-4
+-CONFIDENCE_THRESHOLD=0.75
 
 # 14. API Documentation
-Base URL
-http://localhost:8000
+-Base URL
+-http://localhost:8000
 
 # 15. JSON Output Schema (Hackathon Required Format)
 {
@@ -221,15 +221,15 @@ http://localhost:8000
 22 42128945 rs9923231 C T . PASS . GT 0/1
 
 # 17. Deployment Instructions
-Backend (Render)
-Create new Web Service
-Connect GitHub repo
-Set build command: pip install -r requirements.txt
-Start command: uvicorn app.main:app --host 0.0.0.0 --port 10000
+-Backend (Render)
+-Create new Web Service
+-Connect GitHub repo
+-Set build command: pip install -r requirements.txt
+-Start command: uvicorn app.main:app --host 0.0.0.0 --port 10000
 
-Frontend (vercel)
-Set backend API URL in:
-app/lib/api.ts
+-Frontend (vercel)
+-Set backend API URL in:
+-app/lib/api.ts
 
 # 18. Demo Instructions
 Open frontend
