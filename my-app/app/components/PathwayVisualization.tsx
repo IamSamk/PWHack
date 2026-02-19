@@ -16,51 +16,69 @@ interface PathwayVisualizationProps {
 
 export default function PathwayVisualization({ steps }: PathwayVisualizationProps) {
   return (
-    <div className="relative py-2">
-      {steps.map((step, i) => (
-        <div key={step.id}>
-          {/* Connecting gradient line */}
-          {i > 0 && (
+    <div className="overflow-x-auto py-3 px-1">
+      <div className="flex items-start gap-0 min-w-max">
+        {steps.map((step, i) => (
+          <div key={step.id} className="flex items-start">
+            {/* Node */}
             <motion.div
-              initial={{ scaleY: 0, opacity: 0 }}
-              animate={{ scaleY: 1, opacity: 1 }}
-              transition={{ delay: i * 0.4 - 0.2, duration: 0.3 }}
-              className="flex justify-start ml-[19px]"
-              style={{ transformOrigin: "top" }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.15, duration: 0.4, ease: "easeOut" }}
+              className="flex flex-col items-center gap-1.5 w-[90px]"
             >
-              <div
-                className="w-0.5 h-6 rounded-full"
-                style={{
-                  background: `linear-gradient(to bottom, ${steps[i - 1].color}, ${step.color})`,
-                }}
-              />
-            </motion.div>
-          )}
+              {/* Shape */}
+              <ShapeIcon shape={step.shape} color={step.color} size={36} />
 
-          {/* Node */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.4, duration: 0.5, ease: "easeOut" }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-[rgba(255,255,255,0.02)]"
-          >
-            {/* Shape indicator */}
-            <div className="flex-shrink-0">
-              <ShapeIcon shape={step.shape} color={step.color} size={38} />
-            </div>
-
-            {/* Text */}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-tight" style={{ color: step.color }}>
+              {/* Label */}
+              <p
+                className="text-[10px] font-bold text-center leading-tight w-full px-1"
+                style={{ color: step.color }}
+              >
                 {step.label}
               </p>
-              <p className="text-xs text-muted mt-0.5 leading-relaxed">
-                {step.detail}
+
+              {/* Detail */}
+              <p className="text-[9px] text-muted text-center leading-tight w-full px-1 line-clamp-2">
+                {step.detail.length > 48 ? step.detail.slice(0, 48) + "…" : step.detail}
               </p>
-            </div>
-          </motion.div>
-        </div>
-      ))}
+            </motion.div>
+
+            {/* Arrow connector */}
+            {i < steps.length - 1 && (
+              <motion.div
+                initial={{ opacity: 0, scaleX: 0 }}
+                animate={{ opacity: 1, scaleX: 1 }}
+                transition={{ delay: i * 0.15 + 0.1, duration: 0.3 }}
+                className="flex items-center mt-[14px] mx-1"
+                style={{ transformOrigin: "left" }}
+              >
+                <svg width="28" height="14" viewBox="0 0 28 14">
+                  <defs>
+                    <linearGradient id={`arr-${i}`} x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor={step.color} stopOpacity="0.6" />
+                      <stop offset="100%" stopColor={steps[i + 1].color} stopOpacity="0.6" />
+                    </linearGradient>
+                  </defs>
+                  <line
+                    x1="0" y1="7" x2="20" y2="7"
+                    stroke={`url(#arr-${i})`}
+                    strokeWidth="1.5"
+                  />
+                  <polyline
+                    points="16,3 22,7 16,11"
+                    fill="none"
+                    stroke={steps[i + 1].color}
+                    strokeWidth="1.5"
+                    strokeOpacity="0.7"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </motion.div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -68,7 +86,7 @@ export default function PathwayVisualization({ steps }: PathwayVisualizationProp
 function ShapeIcon({ shape, color, size }: { shape: string; color: string; size: number }) {
   const s = size;
   const half = s / 2;
-  const fill = `${color}18`;
+  const fill = `${color}20`;
 
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
@@ -89,26 +107,10 @@ function ShapeIcon({ shape, color, size }: { shape: string; color: string; size:
         />
       )}
       {shape === "circle" && (
-        <circle
-          cx={half}
-          cy={half}
-          r={half - 3}
-          fill={fill}
-          stroke={color}
-          strokeWidth="1.5"
-        />
+        <circle cx={half} cy={half} r={half - 3} fill={fill} stroke={color} strokeWidth="1.5" />
       )}
       {shape === "rectangle" && (
-        <rect
-          x="3"
-          y="7"
-          width={s - 6}
-          height={s - 14}
-          rx="5"
-          fill={fill}
-          stroke={color}
-          strokeWidth="1.5"
-        />
+        <rect x="3" y="7" width={s - 6} height={s - 14} rx="5" fill={fill} stroke={color} strokeWidth="1.5" />
       )}
       {shape === "shield" && (
         <path
@@ -121,3 +123,4 @@ function ShapeIcon({ shape, color, size }: { shape: string; color: string; size:
     </svg>
   );
 }
+

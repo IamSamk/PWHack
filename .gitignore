@@ -1,0 +1,22 @@
+# Environment secrets — never commit
+.env
+.env.*
+backend/.env
+backend/.env.*
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Misc
+.DS_Store
+*.log

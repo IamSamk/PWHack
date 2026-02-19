@@ -2,17 +2,16 @@
 PharmaGuard — Constrained Explainable AI Layer (XAI)
 
 The LLM does NOT classify, predict, or interpret raw VCF.
-It receives fully deterministic facts from the pharmacogenomic engine and generates:
-  - A human-readable summary explaining the risk finding
-  - Variant-level citations linking rsIDs to star alleles and functional impact
+It receives fully deterministic facts from the pharmacogenomic engine and generates
+a human-readable clinical explanation.
 
-Model: Llama 3.3 70B via Groq (fast cloud inference, free tier)
+Model: Llama 3.3 70B via Groq (OpenAI-compatible endpoint, free tier)
 """
 
 import os
 from typing import Any
 
-from groq import Groq
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,11 +19,11 @@ load_dotenv()
 LLM_MODEL = "llama-3.3-70b-versatile"
 LLM_PROVIDER = "groq"
 
-_client: Groq | None = None
+_client: OpenAI | None = None
 
 
-def _get_client() -> Groq:
-    """Lazy-init Groq client."""
+def _get_client() -> OpenAI:
+    """Lazy-init OpenAI client pointed at Groq's API."""
     global _client
     if _client is None:
         api_key = os.getenv("GROQ_API_KEY")
@@ -33,7 +32,10 @@ def _get_client() -> Groq:
                 "GROQ_API_KEY environment variable not set. "
                 "Get a free key at https://console.groq.com"
             )
-        _client = Groq(api_key=api_key)
+        _client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.groq.com/openai/v1",
+        )
     return _client
 
 

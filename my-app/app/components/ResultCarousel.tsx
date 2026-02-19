@@ -63,8 +63,8 @@ export default function ResultCarousel({ children, labels }: ResultCarouselProps
         ))}
       </div>
 
-      {/* Carousel viewport */}
-      <div className="relative overflow-hidden">
+      {/* Carousel viewport — min-h prevents height collapse between slides */}
+      <div className="relative overflow-hidden rounded-xl" style={{ minHeight: 420 }}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={current}
@@ -73,7 +73,7 @@ export default function ResultCarousel({ children, labels }: ResultCarouselProps
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
           >
             {children[current]}
           </motion.div>
