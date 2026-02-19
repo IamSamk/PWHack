@@ -60,22 +60,31 @@ def compute_dynamic_confidence(
     severity: str,
     detected_variants: list[dict],
     activity_score: float,
+    quality_flags: list[str] | None = None,
+    has_unphased_het: bool = False,
+    min_gq: float | None = None,
+    min_dp: float | None = None,
 ) -> float:
     """
     Compute confidence dynamically from actual genomic evidence.
 
-    Unlike static severity→confidence lookup, this considers:
+    Considers:
     - Number of confirming variants (more = stronger evidence)
     - Activity score clarity (extreme values = unambiguous phenotype)
     - Variant impact strength (loss-of-function = stronger signal)
+    - Genotype quality (GQ < 20 → penalty)
+    - Read depth (DP < 10 → penalty)
+    - Phasing ambiguity (multiple unphased hets → penalty)
+    - No-variant wildtype assumption → moderate base (not maximum)
 
-    Returns value between 0.50 and 0.99.
+    Returns value between 0.40 and 0.99.
     """
     n = len(detected_variants)
+    flags = quality_flags or []
 
     # Base confidence from variant count
     if n == 0:
-        base = 0.55
+        base = 0.55   # wildtype assumed — moderate, not certain
     elif n == 1:
         base = 0.67
     elif n == 2:
@@ -89,13 +98,13 @@ def compute_dynamic_confidence(
 
     # Activity score clarity
     if activity_score == 0.0:
-        adj = 0.06       # Complete loss of function
+        adj = 0.06       # Complete loss — unambiguous
     elif activity_score <= 0.25:
         adj = 0.04
     elif activity_score >= 2.5:
         adj = 0.04       # Ultra-rapid — clear
     elif activity_score >= 2.0:
-        adj = 0.03       # Normal — well-characterized
+        adj = 0.03       # Normal — well-characterised
     elif 0.75 < activity_score < 1.25:
         adj = -0.05      # Intermediate — harder to classify
     elif activity_score <= 0.5:
@@ -111,7 +120,27 @@ def compute_dynamic_confidence(
     )
     impact_bonus = min(0.05, high * 0.025)
 
-    return round(max(0.50, min(0.99, base + adj + impact_bonus)), 2)
+    # Quality penalties
+    quality_penalty = 0.0
+
+    # Low GQ penalty
+    if min_gq is not None and min_gq < 20:
+        quality_penalty += 0.10 if min_gq < 10 else 0.05
+
+    # Low DP penalty
+    if min_dp is not None and min_dp < 10:
+        quality_penalty += 0.10 if min_dp < 5 else 0.05
+
+    # Phasing ambiguity penalty
+    if has_unphased_het and n > 1:
+        quality_penalty += 0.08
+
+    # Conflicting functional effects (LOF + GOF together)
+    has_conflict = any("conflicting functional" in f.lower() for f in flags)
+    if has_conflict:
+        quality_penalty += 0.10
+
+    return round(max(0.40, min(0.99, base + adj + impact_bonus - quality_penalty)), 2)
 
 
 def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
@@ -144,6 +173,10 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
     diplotype = gene_profile.get("diplotype", "*1/*1")
     activity_score = gene_profile.get("activity_score", 2.0)
     detected_variants = gene_profile.get("detected_variants", [])
+    quality_flags = gene_profile.get("quality_flags", [])
+    has_unphased_het = gene_profile.get("has_unphased_het", False)
+    min_gq = gene_profile.get("min_gq")
+    min_dp = gene_profile.get("min_dp")
 
     # Look up the phenotype rule
     rule = phenotype_rules.get(phenotype, None)
@@ -163,7 +196,15 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
     severity = rule.get("severity", "low")
     recommendation = rule.get("recommendation", "No recommendation available.")
 
-    confidence = compute_dynamic_confidence(severity, detected_variants, activity_score)
+    confidence = compute_dynamic_confidence(
+        severity,
+        detected_variants,
+        activity_score,
+        quality_flags=quality_flags,
+        has_unphased_het=has_unphased_het,
+        min_gq=min_gq,
+        min_dp=min_dp,
+    )
 
     # Format detected variants for output
     variant_list = []
@@ -192,6 +233,7 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
             "phenotype": phenotype,
             "activity_score": activity_score,
             "detected_variants": variant_list,
+            "quality_flags": quality_flags,
         },
         "clinical_recommendation": {
             "recommendation": recommendation,

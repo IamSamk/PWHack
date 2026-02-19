@@ -43,7 +43,7 @@ def _get_client() -> OpenAI:
 EXPLANATION_TEMPLATE = (
     "You are a pharmacogenomics clinical advisor. You are given VERIFIED, "
     "deterministic results from a CPIC-aligned pharmacogenomic engine. "
-    "Do NOT re-classify, question, or modify the results.\n\n"
+    "Do NOT re-classify, question, or modify the risk label or phenotype.\n\n"
     "=== DETERMINISTIC FACTS ===\n"
     "Gene: {gene}\n"
     "Diplotype: {diplotype}\n"
@@ -54,21 +54,26 @@ EXPLANATION_TEMPLATE = (
     "Severity: {severity}\n"
     "Confidence Score: {confidence_score:.2f} (0.0 = no supporting evidence, 1.0 = fully confirmed)\n"
     "CPIC Recommendation: {recommendation}\n"
-    "Detected Variants:\n{variant_details}\n"
+    "Detected Variants:\n{variant_details}\n\n"
+    "=== SEQUENCING QUALITY & UNCERTAINTY SIGNALS ===\n"
+    "{quality_flags_text}\n"
     "=== END FACTS ===\n\n"
-    "Using ONLY the facts above, write a concise clinical explanation (4-6 sentences) that covers:\n"
+    "Using ONLY the facts above, write a concise clinical explanation (5-7 sentences) covering:\n"
     "1. MECHANISM: How {gene} affects the metabolism or transport of {drug}.\n"
-    "2. VARIANT IMPACT: How the patient's specific variants ({diplotype}) lead to the "
+    "2. VARIANT IMPACT: How the patient\u2019s specific variants ({diplotype}) lead to the "
     "{phenotype} phenotype and activity score of {activity_score}.\n"
-    "3. RISK: Why this results in a '{risk_label}' risk classification with '{severity}' severity.\n"
+    "3. RISK: Why this results in a \u2018{risk_label}\u2019 risk classification with \u2018{severity}\u2019 severity.\n"
     "4. ACTION: Summarize the clinical recommendation in plain language.\n"
-    "5. CONFIDENCE: In one sentence, explain why the confidence score is {confidence_score:.2f} — "
-    "consider: whether actionable variants were detected, how unambiguous the activity score is, "
-    "and whether the diplotype was directly observed or inferred from defaults.\n\n"
+    "5. CONFIDENCE & UNCERTAINTY: Explain in 1-2 sentences why the confidence score is "
+    "{confidence_score:.2f}. If there are quality or phasing warnings above, describe specifically "
+    "what makes this phenotype inference high- or low-confidence — e.g. incomplete coverage, "
+    "unphased heterozygous calls, conflicting alleles, or low sequencing depth. "
+    "If there are no warnings, state the call is high-confidence.\n\n"
     "Rules:\n"
     "- Reference specific rsIDs and star alleles from the variant data.\n"
     "- Use clinical terminology but remain accessible to a non-specialist.\n"
     "- Do NOT speculate beyond the provided facts.\n"
+    "- Do NOT re-decide the risk or phenotype — only explain it.\n"
     "- Do NOT add disclaimers or caveats — the system adds those automatically."
 )
 
@@ -102,6 +107,7 @@ def generate_explanation(
     severity: str = "low",
     recommendation: str = "No specific recommendation.",
     detected_variants: list[dict] | None = None,
+    quality_flags: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Generate a structured LLM explanation for a pharmacogenomic finding.
@@ -140,7 +146,14 @@ def generate_explanation(
         }
 
     variant_list = detected_variants or []
+    flag_list = quality_flags or []
     variant_text = _format_variant_details(variant_list)
+
+    # Format quality flags for the prompt
+    if flag_list:
+        quality_flags_text = "\n".join(f"  - {f}" for f in flag_list)
+    else:
+        quality_flags_text = "  (None — all genotype calls passed quality thresholds)"
 
     # Build variant citations from deterministic data (not LLM-generated)
     variant_citations = []
@@ -169,6 +182,7 @@ def generate_explanation(
             severity=severity,
             recommendation=recommendation,
             variant_details=variant_text,
+            quality_flags_text=quality_flags_text,
         )
         client = _get_client()
         response = client.chat.completions.create(

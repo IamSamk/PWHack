@@ -403,6 +403,14 @@ def _resolve_genotype_alleles(record: dict) -> tuple[str, str]:
 def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
     """
     Given a gene name and its detected variants, infer star alleles for each haplotype.
+
+    Improvements over naive approach:
+    - Skips homozygous-ref (0/0) variants — they carry no pharmacogenomic signal
+    - Extracts GQ and DP per genotype to assess call quality
+    - Deduplicates: same star allele detected by multiple rsIDs counts once
+    - Flags phasing ambiguity when multiple unphased heterozygous calls exist
+    - Flags conflicting functional effects (LOF + GOF on same gene)
+    - Returns quality_flags list for LLM and confidence engine to act on
     """
     gene_def = STAR_ALLELE_DEFINITIONS.get(gene)
     if not gene_def:
@@ -411,9 +419,20 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
     default_star = gene_def.get("default_star", "*1")
     activity_scores = gene_def.get("activity_scores", {})
 
-    detected = []
+    detected: list[dict] = []
     hap1_stars: list[str] = []
     hap2_stars: list[str] = []
+    quality_flags: list[str] = []
+
+    min_gq: float | None = None
+    min_dp: float | None = None
+    has_unphased_het = False
+    phased_any = False
+    unphased_het_count = 0
+
+    # Deduplicate: track which non-wildtype stars have already been counted per haplotype
+    counted_hap1: set[str] = set()
+    counted_hap2: set[str] = set()
 
     for var_entry in gene_variants:
         rsid = var_entry["rsid"]
@@ -421,8 +440,79 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
         var_info = var_entry["var_info"]
         allele_map = var_info.get("allele_map", {})
 
-        allele1, allele2 = _resolve_genotype_alleles(record)
+        # ── Extract genotype and quality metrics ──
+        gt_str: str | None = None
+        gq_val: float | None = None
+        dp_val: float | None = None
 
+        for _, gt_data in record.get("genotypes", {}).items():
+            gt_str = gt_data.get("GT")
+            try:
+                gq = gt_data.get("GQ", ".")
+                if gq and gq != ".":
+                    gq_val = float(gq)
+            except (ValueError, TypeError):
+                pass
+            try:
+                dp = gt_data.get("DP", ".")
+                if dp and dp != ".":
+                    dp_val = float(dp)
+            except (ValueError, TypeError):
+                pass
+            break  # first sample only
+
+        # Track quality minimums
+        if gq_val is not None:
+            min_gq = min(min_gq, gq_val) if min_gq is not None else gq_val
+        if dp_val is not None:
+            min_dp = min(min_dp, dp_val) if min_dp is not None else dp_val
+
+        # ── Resolve alleles, skip 0/0 (homozygous ref) ──
+        allele1: str
+        allele2: str
+        is_phased = False
+
+        if not gt_str:
+            # No GT info: assume heterozygous alt (conservative)
+            ref = record.get("ref", ".")
+            alts = record.get("alt_alleles", [])
+            allele1, allele2 = ref, (alts[0] if alts else ref)
+        else:
+            is_phased = "|" in gt_str
+            separator = "|" if is_phased else "/"
+            parts = gt_str.split(separator)
+
+            # Skip homozygous reference (0/0) or all-missing (./.) — no variant information
+            non_ref_parts = [p.strip() for p in parts[:2] if p.strip() not in ("0", ".", "")]
+            if not non_ref_parts:
+                continue  # 0/0 or ./.  — nothing to do
+
+            allele_options = [record["ref"]] + record.get("alt_alleles", [])
+            alleles_out: list[str] = []
+            for p in parts[:2]:
+                p = p.strip()
+                if p == "." or p == "":
+                    alleles_out.append(record["ref"])
+                else:
+                    try:
+                        idx = int(p)
+                        alleles_out.append(
+                            allele_options[idx] if idx < len(allele_options) else record["ref"]
+                        )
+                    except ValueError:
+                        alleles_out.append(record["ref"])
+            while len(alleles_out) < 2:
+                alleles_out.append(record["ref"])
+            allele1, allele2 = alleles_out[0], alleles_out[1]
+
+            if is_phased:
+                phased_any = True
+            elif allele1 != allele2:
+                # Unphased heterozygous
+                has_unphased_het = True
+                unphased_het_count += 1
+
+        # ── Map alleles → star alleles ──
         star1 = allele_map.get(allele1, default_star)
         star2 = allele_map.get(allele2, default_star)
 
@@ -434,27 +524,63 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
             "star_1": star1,
             "star_2": star2,
             "impact": var_info.get("impact", "unknown"),
+            "gq": gq_val,
+            "dp": dp_val,
         })
 
-        if star1 != default_star:
+        # ── Deduplicated haplotype star collection ──
+        if star1 != default_star and star1 not in counted_hap1:
             hap1_stars.append(star1)
-        if star2 != default_star:
+            counted_hap1.add(star1)
+        if star2 != default_star and star2 not in counted_hap2:
             hap2_stars.append(star2)
+            counted_hap2.add(star2)
 
-    # Determine the representative star allele for each haplotype
-    # Priority: pick the allele with lowest activity score (most impactful)
+    # ── Quality flags ──
+
+    # Flag low-quality genotypes
+    if min_gq is not None and min_gq < 20:
+        quality_flags.append(
+            f"Low genotype quality (min GQ={min_gq:.0f} < 20). "
+            "Variant calls may be unreliable; confidence is reduced."
+        )
+    if min_dp is not None and min_dp < 10:
+        quality_flags.append(
+            f"Low read depth (min DP={min_dp:.0f} < 10). "
+            "Incomplete gene coverage possible."
+        )
+
+    # Flag phasing ambiguity
+    if has_unphased_het and unphased_het_count > 1 and not phased_any:
+        quality_flags.append(
+            f"Diplotype ambiguous: {unphased_het_count} heterozygous variants detected without phase "
+            "information. Haplotype allele assignment is uncertain — the reported diplotype is the "
+            "most-impactful-first inference, but the true phase may differ."
+        )
+
+    # Flag conflicting functional effects (LOF + GOF together)
+    all_nwt_stars = hap1_stars + hap2_stars
+    has_lof = any(activity_scores.get(s, 1.0) == 0.0 for s in all_nwt_stars)
+    has_gof = any(activity_scores.get(s, 1.0) > 1.0 for s in all_nwt_stars)
+    if has_lof and has_gof:
+        quality_flags.append(
+            "Conflicting functional effects detected: loss-of-function and increased-function alleles "
+            "coexist. Net phenotype is uncertain — risk may be underestimated or overestimated."
+        )
+
+    # ── Representative diplotype ──
     def pick_representative(stars: list[str], default: str) -> str:
         if not stars:
             return default
         scored = [(s, activity_scores.get(s, 1.0)) for s in stars]
-        scored.sort(key=lambda x: x[1])
+        scored.sort(key=lambda x: x[1])  # lowest activity = most impactful
         return scored[0][0]
 
-    star1 = pick_representative(hap1_stars, default_star)
-    star2 = pick_representative(hap2_stars, default_star)
-
-    # Sort diplotype for canonical representation
-    sorted_stars = sorted([star1, star2], key=lambda s: activity_scores.get(s, 1.0))
+    star1_rep = pick_representative(hap1_stars, default_star)
+    star2_rep = pick_representative(hap2_stars, default_star)
+    sorted_stars = sorted(
+        [star1_rep, star2_rep], key=lambda s: activity_scores.get(s, 1.0)
+    )
     diplotype = f"{sorted_stars[0]}/{sorted_stars[1]}"
 
     return {
@@ -463,6 +589,10 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
         "star_allele_1": sorted_stars[0],
         "star_allele_2": sorted_stars[1],
         "diplotype": diplotype,
+        "quality_flags": quality_flags,
+        "has_unphased_het": has_unphased_het,
+        "min_gq": min_gq,
+        "min_dp": min_dp,
     }
 
 
@@ -487,8 +617,8 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
     """
     Build the complete pharmacogenomic profile from parsed VCF data.
 
-    Returns a dict keyed by gene, with diplotype, phenotype, activity score,
-    and detected variants for each of the 6 core genes.
+    Returns a dict keyed by gene with diplotype, phenotype, activity score,
+    detected variants, and quality_flags for each of the 6 core genes.
     """
     profile = {}
 
@@ -496,7 +626,6 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
         gene_variants = parsed_vcf["pharmacogene_variants"].get(gene, [])
 
         if not gene_variants:
-            # No variants detected — assume wildtype
             gene_def = STAR_ALLELE_DEFINITIONS.get(gene, {})
             default_star = gene_def.get("default_star", "*1")
             activity = compute_activity_score(gene, default_star, default_star)
@@ -510,10 +639,17 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
                 "phenotype": phenotype,
                 "detected_variants": [],
                 "variants_found": 0,
+                "quality_flags": [
+                    f"No pharmacogenomic variants detected in {gene}. "
+                    "Wildtype assumed — this may reflect true wild-type or incomplete gene coverage."
+                ],
+                "has_unphased_het": False,
+                "min_gq": None,
+                "min_dp": None,
                 "interpretation": (
                     f"No pharmacogenomic variants detected in {gene}. "
                     f"Assumed wildtype ({default_star}/{default_star})."
-                )
+                ),
             }
         else:
             star_result = infer_star_alleles_for_gene(gene, gene_variants)
@@ -521,6 +657,7 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
             s2 = star_result["star_allele_2"]
             activity = compute_activity_score(gene, s1, s2)
             phenotype = classify_phenotype(activity)
+            quality_flags = star_result.get("quality_flags", [])
 
             profile[gene] = {
                 "diplotype": star_result["diplotype"],
@@ -530,11 +667,16 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
                 "phenotype": phenotype,
                 "detected_variants": star_result["detected_variants"],
                 "variants_found": len(star_result["detected_variants"]),
+                "quality_flags": quality_flags,
+                "has_unphased_het": star_result.get("has_unphased_het", False),
+                "min_gq": star_result.get("min_gq"),
+                "min_dp": star_result.get("min_dp"),
                 "interpretation": (
                     f"{gene} diplotype {star_result['diplotype']} → "
                     f"activity score {activity} → {phenotype}. "
-                    f"Based on {len(star_result['detected_variants'])} detected variant(s)."
-                )
+                    f"Based on {len(star_result['detected_variants'])} detected variant(s). "
+                    + (f" Flags: {len(quality_flags)}." if quality_flags else "")
+                ),
             }
 
     return profile

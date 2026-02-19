@@ -66,7 +66,8 @@ export async function analyzeMultipleDrugs(
 ): Promise<BatchAnalysisResult> {
   const form = new FormData();
   form.append("file", file);
-  form.append("drugs", drugs.map((d) => d.toUpperCase()).join(","));
+  // Send each drug as a separate form field so FastAPI receives List[str]
+  drugs.forEach((d) => form.append("drugs", d.toUpperCase()));
   return request<BatchAnalysisResult>("/analyze/batch", {
     method: "POST",
     body: form,

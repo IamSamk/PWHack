@@ -36,6 +36,7 @@ export interface PharmacogenomicProfile {
   phenotype: string;
   activity_score?: number;
   detected_variants: DetectedVariant[];
+  quality_flags?: string[];
 }
 
 export interface ClinicalRecommendation {

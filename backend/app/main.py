@@ -8,6 +8,7 @@ POST /analyze/batch  -> Multiple drugs in one request (comma-separated or list)
 import asyncio
 import uuid
 from datetime import datetime, timezone
+from typing import List
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -89,6 +90,7 @@ def _build_response(engine_result: dict, pathway: list, explanation: dict) -> di
             "phenotype": pgx.get("phenotype", "Unknown"),
             "activity_score": pgx.get("activity_score", 2.0),
             "detected_variants": pgx.get("detected_variants", []),
+            "quality_flags": pgx.get("quality_flags", []),
         },
         "clinical_recommendation": rec,
         "llm_generated_explanation": explanation,
@@ -128,6 +130,7 @@ async def _analyze_drug_from_profile(drug: str, genomic_profile: dict) -> dict:
             severity=risk.get("severity", "low"),
             recommendation=rec.get("recommendation", ""),
             detected_variants=pgx.get("detected_variants", []),
+            quality_flags=pgx.get("quality_flags", []),
         )
     except Exception as e:
         explanation = {
@@ -152,15 +155,17 @@ async def _analyze_drug_from_profile(drug: str, genomic_profile: dict) -> dict:
 @app.post("/analyze/batch")
 async def analyze_batch(
     file: UploadFile = File(...),
-    drugs: str = Form(...),
+    drugs: List[str] = Form(...),
 ):
     """
-    Batch endpoint: Upload VCF once + comma-separated drug list.
-    Runs all drugs in parallel and returns an array of results.
+    Batch endpoint: Upload VCF once + list of drug names.
+    Accepts repeated form fields OR a single comma-separated value.
+    Runs all drugs in parallel; returns array of results.
 
     Body (multipart/form-data):
       file  — VCF or VCF.GZ
-      drugs — comma-separated list, e.g. "CODEINE,WARFARIN,SIMVASTATIN"
+      drugs — one field per drug, e.g. drugs=CODEINE&drugs=WARFARIN
+               OR single comma-separated: drugs=CODEINE,WARFARIN
 
     Response:
       { "results": [...], "total": N, "errors": [...] }
@@ -188,7 +193,11 @@ async def analyze_batch(
     genomic_profile = parsed["genomic_profile"]
 
     # ── Parse drug list ──
-    drug_list = [d.strip().upper() for d in drugs.split(",") if d.strip()]
+    # Support both repeated fields (drugs=A&drugs=B) and single comma-sep (drugs=A,B)
+    drug_list: list[str] = []
+    for entry in drugs:
+        drug_list.extend([d.strip().upper() for d in entry.split(",") if d.strip()])
+    drug_list = list(dict.fromkeys(drug_list))  # deduplicate, preserve order
     if not drug_list:
         raise HTTPException(status_code=400, detail="No drug names provided.")
     if len(drug_list) > 20:
