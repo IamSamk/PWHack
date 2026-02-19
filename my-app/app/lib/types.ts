@@ -48,6 +48,14 @@ export interface QualityMetrics {
   vcf_parsing_success: boolean;
 }
 
+export interface PathwayStep {
+  id: string;
+  label: string;
+  detail: string;
+  shape: "hexagon" | "diamond" | "circle" | "rectangle" | "shield";
+  color: string;
+}
+
 export interface DrugAnalysisResult {
   patient_id: string;
   drug: string;
@@ -56,6 +64,7 @@ export interface DrugAnalysisResult {
   pharmacogenomic_profile: PharmacogenomicProfile;
   clinical_recommendation: ClinicalRecommendation;
   llm_generated_explanation: LLMExplanation;
+  pathway?: PathwayStep[];
   quality_metrics: QualityMetrics;
 }
 

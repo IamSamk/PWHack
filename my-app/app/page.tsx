@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Dna,
   Zap,
@@ -13,16 +13,21 @@ import {
 import VCFUpload from "./components/VCFUpload";
 import DrugSelector from "./components/DrugSelector";
 import PipelineFlowchart from "./components/PipelineFlowchart";
-import RiskCard from "./components/RiskCard";
-import ExplanationPanel from "./components/ExplanationPanel";
+import DrugReportCard from "./components/DrugReportCard";
+import ResultCarousel from "./components/ResultCarousel";
 import JSONViewer from "./components/JSONViewer";
 
-import { getDrugs, analyzeDrug, APIError } from "./lib/api";
+import { analyzeDrug, APIError } from "./lib/api";
 import type {
   PipelineStep,
   DrugAnalysisResult,
-  LLMExplanation,
 } from "./lib/types";
+
+// ── Available drugs (CPIC-aligned) ──
+const AVAILABLE_DRUGS = [
+  "CODEINE", "WARFARIN", "CLOPIDOGREL",
+  "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
+];
 
 // ── Pipeline step definitions ──
 const PIPELINE_STEPS: PipelineStep[] = [
@@ -32,7 +37,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
   { id: "phenotype", label: "Phenotype Assignment", description: "Computing activity scores and metabolizer phenotypes", status: "pending" },
   { id: "cpic", label: "CPIC Rule Engine", description: "Matching phenotypes against CPIC dosing guidelines", status: "pending" },
   { id: "risk", label: "Risk Classification", description: "Assigning risk labels with confidence scores", status: "pending" },
-  { id: "llm", label: "LLM Explanation", description: "Generating AI-powered clinical explanation via Mistral 7B", status: "pending" },
+  { id: "llm", label: "LLM Explanation", description: "Generating AI-powered clinical explanation via Groq Llama 3.3", status: "pending" },
 ];
 
 type AppPhase = "input" | "processing" | "results";
@@ -41,7 +46,6 @@ export default function Home() {
   // ── State ──
   const [phase, setPhase] = useState<AppPhase>("input");
   const [vcfFile, setVcfFile] = useState<File | null>(null);
-  const [availableDrugs, setAvailableDrugs] = useState<string[]>([]);
   const [selectedDrugs, setSelectedDrugs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,18 +55,10 @@ export default function Home() {
 
   // Results
   const [drugResults, setDrugResults] = useState<DrugAnalysisResult[]>([]);
-  const [activeExplanation, setActiveExplanation] = useState<LLMExplanation | null>(null);
   const [llmLoading, setLlmLoading] = useState(false);
   const [jsonDrawerOpen, setJsonDrawerOpen] = useState(false);
 
   const resultsRef = useRef<HTMLDivElement>(null);
-
-  // ── Load available drugs on mount ──
-  useEffect(() => {
-    getDrugs()
-      .then(setAvailableDrugs)
-      .catch(() => setAvailableDrugs(["CODEINE", "WARFARIN", "CLOPIDOGREL", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL"]));
-  }, []);
 
   // ── Step updater ──
   const updateStep = useCallback((stepId: string, status: PipelineStep["status"], description?: string) => {
@@ -99,7 +95,6 @@ export default function Home() {
     setError(null);
     setPhase("processing");
     setDrugResults([]);
-    setActiveExplanation(null);
     setJsonDrawerOpen(false);
     resetSteps();
 
@@ -110,7 +105,7 @@ export default function Home() {
       await animateStep("star", "Inferring star alleles...");
       await animateStep("phenotype", "Assigning metabolizer phenotypes...");
 
-      // Analyze each drug (each call sends VCF + drug to POST /analyze)
+      // Analyze each drug
       const allResults: DrugAnalysisResult[] = [];
 
       for (const drug of selectedDrugs) {
@@ -123,7 +118,7 @@ export default function Home() {
         await new Promise(r => setTimeout(r, 200));
 
         setLlmLoading(true);
-        updateStep("llm", "active", `Generating explanation for ${drug} via Mistral 7B...`);
+        updateStep("llm", "active", `Generating explanation for ${drug} via Groq Llama 3.3...`);
 
         try {
           const result = await analyzeDrug(vcfFile, drug);
@@ -131,9 +126,7 @@ export default function Home() {
 
           updateStep("risk", "completed", `${drug}: ${result.risk_assessment.risk_label} (${result.risk_assessment.severity})`);
           updateStep("llm", "completed", `Explanation generated for ${drug}`);
-
           setDrugResults([...allResults]);
-          setActiveExplanation(result.llm_generated_explanation);
           setLlmLoading(false);
         } catch (err) {
           const msg = err instanceof APIError ? err.detail : String(err);
@@ -163,7 +156,6 @@ export default function Home() {
     setSelectedDrugs([]);
     setError(null);
     setDrugResults([]);
-    setActiveExplanation(null);
     setJsonDrawerOpen(false);
     resetSteps();
   }, [resetSteps]);
@@ -171,7 +163,7 @@ export default function Home() {
   const canAnalyze = vcfFile !== null && selectedDrugs.length > 0 && phase === "input";
   const isProcessing = phase === "processing";
 
-  // Build JSON payload: single result if 1 drug, array if multiple
+  // Build JSON payload
   const jsonPayload = drugResults.length === 1 ? drugResults[0] : drugResults.length > 1 ? drugResults : null;
 
   return (
@@ -255,7 +247,7 @@ export default function Home() {
                 Drugs to Analyze
               </label>
               <DrugSelector
-                availableDrugs={availableDrugs}
+                availableDrugs={AVAILABLE_DRUGS}
                 selectedDrugs={selectedDrugs}
                 onChange={setSelectedDrugs}
                 disabled={isProcessing}
@@ -308,18 +300,33 @@ export default function Home() {
                 </div>
               )}
 
-              {drugResults.map((result) => (
-                <div key={result.drug} className="space-y-4">
-                  <RiskCard result={result} />
-                  <ExplanationPanel
-                    explanation={result.llm_generated_explanation}
-                    loading={false}
-                  />
-                </div>
-              ))}
+              {/* Carousel for multiple results, single card for one */}
+              {drugResults.length === 1 && (
+                <DrugReportCard result={drugResults[0]} />
+              )}
+
+              {drugResults.length > 1 && (
+                <ResultCarousel labels={drugResults.map(r => r.drug)}>
+                  {drugResults.map((result) => (
+                    <DrugReportCard key={result.drug} result={result} />
+                  ))}
+                </ResultCarousel>
+              )}
 
               {llmLoading && (
-                <ExplanationPanel explanation={null} loading={true} />
+                <div className="border border-card-border rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Loader2 className="w-5 h-5 text-accent animate-spin" />
+                    <span className="text-sm font-medium text-accent">
+                      Generating AI explanation...
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-4 rounded animate-shimmer" />
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* JSON Output */}
@@ -350,7 +357,7 @@ export default function Home() {
       <footer className="border-t border-card-border mt-16">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-muted">
           <span>PharmaGuard v2.0 — Precision Pharmacogenomic Risk Engine</span>
-          <span>CPIC Guidelines • Mistral 7B XAI • RIFT 2026</span>
+          <span>CPIC Guidelines • Groq Llama 3.3 XAI • RIFT 2026</span>
         </div>
       </footer>
     </div>

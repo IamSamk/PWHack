@@ -5,55 +5,65 @@ The LLM does NOT classify, predict, or interpret raw VCF.
 It receives fully deterministic facts from the pharmacogenomic engine and generates:
   - A human-readable summary explaining the risk finding
   - Variant-level citations linking rsIDs to star alleles and functional impact
-  - Biological mechanism description
-  - Clinical implication summary
 
-Model: mistral:7b via Ollama (local, no data leaves the machine)
+Model: Llama 3.3 70B via Groq (fast cloud inference, free tier)
 """
 
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import PromptTemplate
+import os
 from typing import Any
 
-LLM_MODEL = "mistral:7b"
+from groq import Groq
+from dotenv import load_dotenv
 
-# Initialize ChatOllama with mistral:7b
-llm = ChatOllama(model=LLM_MODEL, temperature=0.3, num_predict=512)
+load_dotenv()
+
+LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_PROVIDER = "groq"
+
+_client: Groq | None = None
+
+
+def _get_client() -> Groq:
+    """Lazy-init Groq client."""
+    global _client
+    if _client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "GROQ_API_KEY environment variable not set. "
+                "Get a free key at https://console.groq.com"
+            )
+        _client = Groq(api_key=api_key)
+    return _client
+
 
 # ── Rich structured prompt ──────────────────────────────────────
-EXPLANATION_PROMPT = PromptTemplate(
-    input_variables=[
-        "gene", "phenotype", "diplotype", "activity_score",
-        "drug", "risk_label", "severity", "recommendation",
-        "variant_details",
-    ],
-    template=(
-        "You are a pharmacogenomics clinical advisor. You are given VERIFIED, "
-        "deterministic results from a CPIC-aligned pharmacogenomic engine. "
-        "Do NOT re-classify, question, or modify the results.\n\n"
-        "=== DETERMINISTIC FACTS ===\n"
-        "Gene: {gene}\n"
-        "Diplotype: {diplotype}\n"
-        "Activity Score: {activity_score}\n"
-        "Phenotype: {phenotype}\n"
-        "Drug: {drug}\n"
-        "Risk Label: {risk_label}\n"
-        "Severity: {severity}\n"
-        "CPIC Recommendation: {recommendation}\n"
-        "Detected Variants:\n{variant_details}\n"
-        "=== END FACTS ===\n\n"
-        "Using ONLY the facts above, write a concise clinical explanation (4-6 sentences) that covers:\n"
-        "1. MECHANISM: How {gene} affects the metabolism or transport of {drug}.\n"
-        "2. VARIANT IMPACT: How the patient's specific variants ({diplotype}) lead to the "
-        "{phenotype} phenotype and activity score of {activity_score}.\n"
-        "3. RISK: Why this results in a '{risk_label}' risk classification with '{severity}' severity.\n"
-        "4. ACTION: Summarize the clinical recommendation in plain language.\n\n"
-        "Rules:\n"
-        "- Reference specific rsIDs and star alleles from the variant data.\n"
-        "- Use clinical terminology but remain accessible to a non-specialist.\n"
-        "- Do NOT speculate beyond the provided facts.\n"
-        "- Do NOT add disclaimers or caveats — the system adds those automatically."
-    ),
+EXPLANATION_TEMPLATE = (
+    "You are a pharmacogenomics clinical advisor. You are given VERIFIED, "
+    "deterministic results from a CPIC-aligned pharmacogenomic engine. "
+    "Do NOT re-classify, question, or modify the results.\n\n"
+    "=== DETERMINISTIC FACTS ===\n"
+    "Gene: {gene}\n"
+    "Diplotype: {diplotype}\n"
+    "Activity Score: {activity_score}\n"
+    "Phenotype: {phenotype}\n"
+    "Drug: {drug}\n"
+    "Risk Label: {risk_label}\n"
+    "Severity: {severity}\n"
+    "CPIC Recommendation: {recommendation}\n"
+    "Detected Variants:\n{variant_details}\n"
+    "=== END FACTS ===\n\n"
+    "Using ONLY the facts above, write a concise clinical explanation (4-6 sentences) that covers:\n"
+    "1. MECHANISM: How {gene} affects the metabolism or transport of {drug}.\n"
+    "2. VARIANT IMPACT: How the patient's specific variants ({diplotype}) lead to the "
+    "{phenotype} phenotype and activity score of {activity_score}.\n"
+    "3. RISK: Why this results in a '{risk_label}' risk classification with '{severity}' severity.\n"
+    "4. ACTION: Summarize the clinical recommendation in plain language.\n\n"
+    "Rules:\n"
+    "- Reference specific rsIDs and star alleles from the variant data.\n"
+    "- Use clinical terminology but remain accessible to a non-specialist.\n"
+    "- Do NOT speculate beyond the provided facts.\n"
+    "- Do NOT add disclaimers or caveats — the system adds those automatically."
 )
 
 
@@ -141,7 +151,7 @@ def generate_explanation(
         variant_citations.append(citation)
 
     try:
-        prompt = EXPLANATION_PROMPT.format(
+        prompt = EXPLANATION_TEMPLATE.format(
             gene=gene,
             phenotype=phenotype,
             diplotype=diplotype,
@@ -152,8 +162,14 @@ def generate_explanation(
             recommendation=recommendation,
             variant_details=variant_text,
         )
-        response = llm.invoke(prompt)
-        summary = response.content.strip()
+        client = _get_client()
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=512,
+        )
+        summary = response.choices[0].message.content.strip()
     except Exception as e:
         summary = (
             f"The patient carries {diplotype} in {gene}, resulting in a {phenotype} "

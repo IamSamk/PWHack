@@ -3,8 +3,8 @@ PharmaGuard Pharmacogenomic Engine
 
 Takes a genomic profile + drug name → produces risk assessment.
 Loads rules from cpic_rules.json — supports any drug present in that file.
-Computes Pharmacogenomic Burden Score (PBS) across all genes.
-Supports counterfactual simulation.
+Dynamic confidence scoring based on actual genomic evidence.
+Generates pathway visualization data for frontend storytelling.
 """
 
 import json
@@ -54,30 +54,64 @@ def get_drug_info(drug: str) -> dict | None:
     return rules.get(drug.upper())
 
 
-# --- Severity weights for PBS calculation ---
-SEVERITY_WEIGHTS = {
-    "critical": 4.0,
-    "high": 3.0,
-    "moderate": 2.0,
-    "low": 1.0,
-    "none": 0.0,
-}
+# --- Dynamic Confidence Scoring ---
 
-CONFIDENCE_LEVELS = {
-    "critical": 0.95,
-    "high": 0.90,
-    "moderate": 0.85,
-    "low": 0.70,
-    "none": 0.95,
-}
+def compute_dynamic_confidence(
+    severity: str,
+    detected_variants: list[dict],
+    activity_score: float,
+) -> float:
+    """
+    Compute confidence dynamically from actual genomic evidence.
 
-EVIDENCE_LEVELS = {
-    "critical": "1A — Strong CPIC recommendation",
-    "high": "1A — Strong CPIC recommendation",
-    "moderate": "1B — Moderate CPIC recommendation",
-    "low": "2A — Weak or limited evidence",
-    "none": "1A — Standard dosing supported",
-}
+    Unlike static severity→confidence lookup, this considers:
+    - Number of confirming variants (more = stronger evidence)
+    - Activity score clarity (extreme values = unambiguous phenotype)
+    - Variant impact strength (loss-of-function = stronger signal)
+
+    Returns value between 0.50 and 0.99.
+    """
+    n = len(detected_variants)
+
+    # Base confidence from variant count
+    if n == 0:
+        base = 0.55
+    elif n == 1:
+        base = 0.67
+    elif n == 2:
+        base = 0.76
+    elif n == 3:
+        base = 0.84
+    elif n == 4:
+        base = 0.89
+    else:
+        base = min(0.94, 0.89 + 0.012 * (n - 4))
+
+    # Activity score clarity
+    if activity_score == 0.0:
+        adj = 0.06       # Complete loss of function
+    elif activity_score <= 0.25:
+        adj = 0.04
+    elif activity_score >= 2.5:
+        adj = 0.04       # Ultra-rapid — clear
+    elif activity_score >= 2.0:
+        adj = 0.03       # Normal — well-characterized
+    elif 0.75 < activity_score < 1.25:
+        adj = -0.05      # Intermediate — harder to classify
+    elif activity_score <= 0.5:
+        adj = 0.02
+    else:
+        adj = 0.0
+
+    # High-impact variant bonus
+    high = sum(
+        1 for v in detected_variants
+        if any(k in v.get("impact", "").lower()
+               for k in ("nonfunctional", "frameshift", "stop", "splice"))
+    )
+    impact_bonus = min(0.05, high * 0.025)
+
+    return round(max(0.50, min(0.99, base + adj + impact_bonus)), 2)
 
 
 def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
@@ -129,8 +163,7 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
     severity = rule.get("severity", "low")
     recommendation = rule.get("recommendation", "No recommendation available.")
 
-    confidence = CONFIDENCE_LEVELS.get(severity, 0.75)
-    evidence_level = EVIDENCE_LEVELS.get(severity, "Unknown")
+    confidence = compute_dynamic_confidence(severity, detected_variants, activity_score)
 
     # Format detected variants for output
     variant_list = []
@@ -152,7 +185,6 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
             "risk_label": risk_label,
             "severity": severity,
             "confidence_score": confidence,
-            "evidence_level": evidence_level,
         },
         "pharmacogenomic_profile": {
             "primary_gene": primary_gene,
@@ -160,7 +192,6 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
             "phenotype": phenotype,
             "activity_score": activity_score,
             "detected_variants": variant_list,
-            "variants_count": len(variant_list),
         },
         "clinical_recommendation": {
             "recommendation": recommendation,
@@ -171,193 +202,102 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
     }
 
 
-def compute_pharmacogenomic_burden_score(
-    genomic_profile: dict, drugs: list[str] | None = None
-) -> dict[str, Any]:
+
+def generate_pathway_steps(drug: str, engine_result: dict) -> list[dict]:
     """
-    Compute the Pharmacogenomic Burden Score (PBS) across all genes.
+    Generate step-by-step pathway visualization data for the frontend.
 
-    PBS = Σ (gene severity weight based on worst-case drug interaction)
-
-    Optionally scoped to a specific list of drugs.
+    Each step has: id, label, detail, shape, color.
+    Colors and descriptions are derived dynamically from actual patient data.
     """
-    rules = _load_rules()
+    pgx = engine_result.get("pharmacogenomic_profile", {})
+    risk = engine_result.get("risk_assessment", {})
+    rec = engine_result.get("clinical_recommendation", {})
 
-    if drugs is None:
-        drugs = list(rules.keys())
-    else:
-        drugs = [d.upper() for d in drugs]
+    gene = pgx.get("primary_gene", "Unknown")
+    diplotype = pgx.get("diplotype", "*1/*1")
+    phenotype = pgx.get("phenotype", "NM")
+    activity = pgx.get("activity_score", 2.0)
+    n_variants = len(pgx.get("detected_variants", []))
+    risk_label = risk.get("risk_label", "Unknown")
+    severity = risk.get("severity", "none")
 
-    gene_burdens: dict[str, dict] = {}
-    high_risk_pairs: list[dict] = []
-
-    for drug in drugs:
-        if drug not in rules:
-            continue
-
-        drug_rules = rules[drug]
-        primary_gene = drug_rules["primary_gene"]
-        gene_profile = genomic_profile.get(primary_gene, {})
-        phenotype = gene_profile.get("phenotype", "NM")
-
-        pheno_rule = drug_rules.get("phenotype_rules", {}).get(phenotype)
-        if not pheno_rule:
-            continue
-
-        severity = pheno_rule.get("severity", "none")
-        weight = SEVERITY_WEIGHTS.get(severity, 0.0)
-
-        if primary_gene not in gene_burdens:
-            gene_burdens[primary_gene] = {
-                "phenotype": phenotype,
-                "activity_score": gene_profile.get("activity_score", 2.0),
-                "max_severity_weight": 0.0,
-                "affected_drugs": [],
-            }
-
-        gene_burdens[primary_gene]["affected_drugs"].append({
-            "drug": drug,
-            "risk_label": pheno_rule.get("risk_label", "Unknown"),
-            "severity": severity,
-            "weight": weight,
-        })
-
-        if weight > gene_burdens[primary_gene]["max_severity_weight"]:
-            gene_burdens[primary_gene]["max_severity_weight"] = weight
-
-        if severity in ("critical", "high"):
-            high_risk_pairs.append({
-                "drug": drug,
-                "gene": primary_gene,
-                "phenotype": phenotype,
-                "risk_label": pheno_rule.get("risk_label"),
-                "severity": severity,
-            })
-
-    # PBS = sum of max severity weights per gene
-    total_pbs = sum(gb["max_severity_weight"] for gb in gene_burdens.values())
-    max_possible = len(gene_burdens) * max(SEVERITY_WEIGHTS.values()) if gene_burdens else 1.0
-    normalized_pbs = round(total_pbs / max_possible, 3) if max_possible > 0 else 0.0
-
-    # Risk tier
-    if total_pbs >= 12:
-        risk_tier = "CRITICAL"
-    elif total_pbs >= 8:
-        risk_tier = "HIGH"
-    elif total_pbs >= 4:
-        risk_tier = "MODERATE"
-    elif total_pbs > 0:
-        risk_tier = "LOW"
-    else:
-        risk_tier = "MINIMAL"
-
-    return {
-        "pharmacogenomic_burden_score": round(total_pbs, 2),
-        "normalized_pbs": normalized_pbs,
-        "risk_tier": risk_tier,
-        "gene_burdens": gene_burdens,
-        "high_risk_pairs": high_risk_pairs,
-        "total_genes_affected": len(
-            [g for g in gene_burdens.values() if g["max_severity_weight"] > 0]
-        ),
-        "drugs_analyzed": len(drugs),
+    # Dynamic colors based on actual data
+    pheno_colors = {
+        "PM": "#ef4444", "IM": "#f97316", "NM": "#22c55e",
+        "RM": "#06b6d4", "URM": "#8b5cf6",
+    }
+    severity_colors = {
+        "critical": "#ef4444", "high": "#f97316",
+        "moderate": "#eab308", "low": "#22c55e", "none": "#22c55e",
     }
 
+    pheno_color = pheno_colors.get(phenotype, "#64748b")
+    risk_color = severity_colors.get(severity, "#64748b")
 
-def counterfactual_simulation(
-    drug: str, genomic_profile: dict, target_phenotype: str = "NM"
-) -> dict[str, Any]:
-    """
-    Simulate: 'What if this patient were a different metabolizer for the primary gene?'
+    # Activity description
+    if activity == 0.0:
+        activity_desc = "No enzyme function"
+    elif activity <= 0.5:
+        activity_desc = "Severely reduced function"
+    elif activity < 1.0:
+        activity_desc = "Reduced function"
+    elif activity <= 2.0:
+        activity_desc = "Normal function"
+    else:
+        activity_desc = "Enhanced function"
 
-    Returns both actual and counterfactual assessments for comparison.
-    """
-    rules = _load_rules()
-    drug_upper = drug.upper()
+    # Metabolism narrative
+    if phenotype == "PM":
+        metabolism_desc = f"{gene} cannot adequately process {drug}"
+    elif phenotype == "IM":
+        metabolism_desc = f"{gene} partially metabolizes {drug}"
+    elif phenotype in ("RM", "URM"):
+        metabolism_desc = f"{gene} rapidly converts {drug}"
+    else:
+        metabolism_desc = f"{gene} normally metabolizes {drug}"
 
-    if drug_upper not in rules:
-        return {"error": f"Drug '{drug}' not found."}
+    s = "s" if n_variants != 1 else ""
 
-    primary_gene = rules[drug_upper]["primary_gene"]
-
-    # Actual assessment
-    actual = assess_drug_risk(drug, genomic_profile)
-
-    # Build counterfactual profile
-    counterfactual_profile = {}
-    for gene, data in genomic_profile.items():
-        if gene == primary_gene:
-            from app.parser import STAR_ALLELE_DEFINITIONS
-
-            gene_def = STAR_ALLELE_DEFINITIONS.get(gene, {})
-            default_star = gene_def.get("default_star", "*1")
-
-            # Simulate target phenotype activity
-            phenotype_activity = {
-                "PM": 0.0, "IM": 0.5, "NM": 2.0, "RM": 2.5, "URM": 3.0
-            }
-            sim_activity = phenotype_activity.get(target_phenotype, 2.0)
-
-            counterfactual_profile[gene] = {
-                **data,
-                "phenotype": target_phenotype,
-                "activity_score": sim_activity,
-                "diplotype": (
-                    f"{default_star}/{default_star}"
-                    if target_phenotype == "NM"
-                    else data["diplotype"]
-                ),
-            }
-        else:
-            counterfactual_profile[gene] = data
-
-    # Counterfactual assessment
-    counterfactual = assess_drug_risk(drug, counterfactual_profile)
-
-    return {
-        "drug": drug_upper,
-        "primary_gene": primary_gene,
-        "actual": {
-            "phenotype": actual.get("pharmacogenomic_profile", {}).get("phenotype"),
-            "risk_assessment": actual.get("risk_assessment"),
-            "recommendation": actual.get("clinical_recommendation", {}).get("recommendation"),
+    return [
+        {
+            "id": "gene",
+            "label": gene,
+            "detail": f"Primary pharmacogene responsible for {drug} metabolism",
+            "shape": "hexagon",
+            "color": "#06b6d4",
         },
-        "counterfactual": {
-            "simulated_phenotype": target_phenotype,
-            "risk_assessment": counterfactual.get("risk_assessment"),
-            "recommendation": counterfactual.get("clinical_recommendation", {}).get(
-                "recommendation"
+        {
+            "id": "variants",
+            "label": f"{n_variants} Variant{s}",
+            "detail": (
+                f"Diplotype {diplotype}"
+                + (f" \u2014 {n_variants} actionable variant{s} identified"
+                   if n_variants > 0
+                   else " \u2014 Wild-type assumed (no actionable variants)")
             ),
+            "shape": "diamond",
+            "color": "#a855f7" if n_variants > 0 else "#22c55e",
         },
-        "risk_changed": (
-            actual.get("risk_assessment", {}).get("risk_label")
-            != counterfactual.get("risk_assessment", {}).get("risk_label")
-        ),
-    }
-
-
-def batch_drug_assessment(
-    genomic_profile: dict, drugs: list[str] | None = None
-) -> dict[str, Any]:
-    """
-    Assess risk for multiple drugs at once.
-    If no drug list provided, assesses ALL drugs in cpic_rules.json.
-    """
-    rules = _load_rules()
-
-    if drugs is None:
-        drugs = list(rules.keys())
-    else:
-        drugs = [d.upper() for d in drugs]
-
-    results = {}
-    for drug in drugs:
-        results[drug] = assess_drug_risk(drug, genomic_profile)
-
-    pbs = compute_pharmacogenomic_burden_score(genomic_profile, drugs)
-
-    return {
-        "drug_assessments": results,
-        "burden_score": pbs,
-        "total_drugs_assessed": len(results),
-    }
+        {
+            "id": "phenotype",
+            "label": f"{phenotype} Metabolizer",
+            "detail": f"Activity score {activity} \u2014 {activity_desc}",
+            "shape": "circle",
+            "color": pheno_color,
+        },
+        {
+            "id": "metabolism",
+            "label": f"{drug} Interaction",
+            "detail": metabolism_desc,
+            "shape": "rectangle",
+            "color": pheno_color,
+        },
+        {
+            "id": "effect",
+            "label": risk_label,
+            "detail": rec.get("recommendation", "Consult clinical guidelines")[:150],
+            "shape": "shield",
+            "color": risk_color,
+        },
+    ]

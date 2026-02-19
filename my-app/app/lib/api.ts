@@ -29,12 +29,6 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-/** Get list of available drugs. */
-export async function getDrugs(): Promise<string[]> {
-  const data = await request<{ available_drugs: string[]; count: number }>("/drugs");
-  return data.available_drugs;
-}
-
 /**
  * Analyze a single drug against a VCF file.
  * Sends file + drug as multipart form to POST /analyze.

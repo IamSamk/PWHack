@@ -1,10 +1,7 @@
 """
-PharmaGuard API — FastAPI endpoints for pharmacogenomic analysis.
+PharmaGuard API - Single endpoint for pharmacogenomic analysis.
 
-Endpoints:
-  GET  /        → Service info
-  GET  /drugs   → List available drugs (from CPIC rules)
-  POST /analyze → Upload VCF + drug name → full risk assessment + LLM explanation
+POST /analyze -> Upload VCF + drug name -> full risk assessment + LLM explanation + pathway
 """
 
 import uuid
@@ -14,7 +11,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.parser import parse_vcf_bytes, VCFParseError, VCFFileTooLargeError
-from app.engine import assess_drug_risk, get_available_drugs
+from app.engine import assess_drug_risk, generate_pathway_steps
 from app.llm_service import generate_explanation
 
 app = FastAPI(
@@ -30,26 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.get("/")
-def root():
-    return {
-        "service": "PharmaGuard",
-        "version": "2.0.0",
-        "status": "running",
-        "endpoints": {
-            "GET /drugs": "List available drugs",
-            "POST /analyze": "Upload VCF file + drug name → risk assessment",
-        },
-    }
-
-
-@app.get("/drugs")
-def list_drugs():
-    """List all drugs with CPIC rules available."""
-    drugs = get_available_drugs()
-    return {"available_drugs": drugs, "count": len(drugs)}
 
 
 @app.post("/analyze")
@@ -95,7 +72,10 @@ async def analyze(
     risk = engine_result.get("risk_assessment", {})
     rec = engine_result.get("clinical_recommendation", {})
 
-    # ── LLM explanation (mandatory) ──
+    # ── Generate pathway steps ──
+    pathway = generate_pathway_steps(drug, engine_result)
+
+    # ── LLM explanation ──
     try:
         explanation = generate_explanation(
             gene=pgx.get("primary_gene", ""),
@@ -118,7 +98,7 @@ async def analyze(
                 f"Risk: {risk.get('risk_label', 'unknown')}."
             ),
             "variant_citations": [],
-            "model": "mistral:7b",
+            "model": "llama-3.3-70b-versatile",
             "disclaimer": "Fallback explanation due to LLM error.",
         }
 
@@ -140,6 +120,7 @@ async def analyze(
         },
         "clinical_recommendation": rec,
         "llm_generated_explanation": explanation,
+        "pathway": pathway,
         "quality_metrics": {
             "vcf_parsing_success": True,
         },
