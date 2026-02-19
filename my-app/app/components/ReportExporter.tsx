@@ -24,133 +24,17 @@ function getRiskColor(risk: string): string {
   return RISK_COLORS.unknown;
 }
 
-function buildReportHTML(results: DrugAnalysisResult[]): string {
+function buildCoverHTML(results: DrugAnalysisResult[]): string {
   const dateStr = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+    year: "numeric", month: "long", day: "numeric",
   });
-
-  const drugCards = results
-    .map((r) => {
-      const riskColor = getRiskColor(r.risk_assessment.risk_label);
-      const conf = (r.risk_assessment.confidence_score * 100).toFixed(0);
-      const variants = r.pharmacogenomic_profile.detected_variants;
-      const geneName =
-        r.clinical_recommendation?.gene ??
-        r.pharmacogenomic_profile.primary_gene;
-
-      const variantRows =
-        variants.length > 0
-          ? variants
-              .map(
-                (v) => `
-          <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
-            <td style="padding:5px 8px;font-family:monospace;color:#06B6D4;">${v.rsid}</td>
-            <td style="padding:5px 8px;font-family:monospace;color:#e2e8f0;">${v.genotype}</td>
-            <td style="padding:5px 8px;color:#e2e8f0;">${v.impact}</td>
-            <td style="padding:5px 8px;font-family:monospace;color:#94A3B8;">
-              ${[v.star_allele_1, v.star_allele_2].filter(Boolean).join("/") || "—"}
-            </td>
-          </tr>`
-              )
-              .join("")
-          : "";
-
-      const variantSection =
-        variants.length > 0
-          ? `<div style="margin-bottom:14px;">
-              <div style="font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">
-                Detected Variants (${variants.length})
-              </div>
-              <table style="width:100%;border-collapse:collapse;font-size:10px;">
-                <thead>
-                  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-                    <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">rsID</th>
-                    <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">Genotype</th>
-                    <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">Impact</th>
-                    <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">Star Alleles</th>
-                  </tr>
-                </thead>
-                <tbody>${variantRows}</tbody>
-              </table>
-            </div>`
-          : `<div style="margin-bottom:14px;font-size:10px;color:#475569;font-style:italic;">
-              No actionable variants detected — wild-type assumed.
-            </div>`;
-
-      const recSection = r.clinical_recommendation?.recommendation
-        ? `<div style="margin-top:12px;font-size:10px;color:#64748b;border-left:2px solid rgba(6,182,212,0.3);padding-left:10px;">
-            <span style="font-weight:600;color:#06B6D4;">CPIC Recommendation:</span>
-            ${r.clinical_recommendation.recommendation}
-            ${
-              r.clinical_recommendation.guideline_source
-                ? `<span style="display:block;font-size:9px;color:#334155;margin-top:2px;">
-                    Source: ${r.clinical_recommendation.guideline_source}
-                  </span>`
-                : ""
-            }
-          </div>`
-        : "";
-
-      return `
-        <div style="margin-bottom:36px;border:1px solid rgba(255,255,255,0.06);border-radius:10px;overflow:hidden;">
-          <div style="background:rgba(255,255,255,0.03);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#f1f5f9;letter-spacing:.05em;">${r.drug}</div>
-              <div style="font-size:10px;color:#64748b;margin-top:2px;">${geneName} · ${r.pharmacogenomic_profile.phenotype}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="display:inline-block;background:${riskColor}18;border:1px solid ${riskColor}44;color:${riskColor};font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase;">
-                ${r.risk_assessment.risk_label}
-              </div>
-              <div style="font-size:10px;color:#64748b;margin-top:4px;">Confidence: ${conf}%</div>
-            </div>
-          </div>
-
-          <div style="padding:16px 20px;">
-            <div style="margin-bottom:14px;">
-              <div style="font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Genomic Profile</div>
-              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px 10px;">
-                  <div style="font-size:8.5px;color:#64748b;margin-bottom:3px;">Diplotype</div>
-                  <div style="font-size:11px;font-weight:600;color:#e2e8f0;font-family:monospace;">${r.pharmacogenomic_profile.diplotype}</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px 10px;">
-                  <div style="font-size:8.5px;color:#64748b;margin-bottom:3px;">Phenotype</div>
-                  <div style="font-size:11px;font-weight:600;color:#e2e8f0;">${r.pharmacogenomic_profile.phenotype}</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px 10px;">
-                  <div style="font-size:8.5px;color:#64748b;margin-bottom:3px;">Severity</div>
-                  <div style="font-size:11px;font-weight:600;color:${riskColor};">
-                    ${r.risk_assessment.severity.charAt(0).toUpperCase() + r.risk_assessment.severity.slice(1)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            ${variantSection}
-
-            <div>
-              <div style="font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">AI Clinical Explanation</div>
-              <div style="font-size:10.5px;color:#94A3B8;line-height:1.6;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:10px 12px;">
-                ${r.llm_generated_explanation.summary}
-              </div>
-            </div>
-
-            ${recSection}
-          </div>
-        </div>`;
-    })
-    .join("");
-
   return `
     <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;box-sizing:border-box;">
-      <div style="border-bottom:1px solid rgba(6,182,212,0.2);padding-bottom:24px;margin-bottom:32px;">
+      <div style="border-bottom:1px solid rgba(6,182,212,0.2);padding-bottom:24px;margin-bottom:28px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <h1 style="font-size:22px;font-weight:700;color:#06B6D4;margin:0;letter-spacing:-.02em;">PharmaGuard</h1>
-            <p style="font-size:11px;color:#64748b;margin:2px 0 0 0;">Precision Pharmacogenomic Risk Report</p>
+            <h1 style="font-size:24px;font-weight:700;color:#06B6D4;margin:0;letter-spacing:-.02em;">PharmaGuard</h1>
+            <p style="font-size:12px;color:#64748b;margin:3px 0 0 0;">Precision Pharmacogenomic Risk Report</p>
           </div>
           <div style="text-align:right;">
             <p style="font-size:11px;color:#64748b;margin:0;">Generated: ${dateStr}</p>
@@ -162,12 +46,96 @@ function buildReportHTML(results: DrugAnalysisResult[]): string {
           DISCLAIMER: This report is generated by an AI-assisted pharmacogenomic engine. It is not a substitute for professional clinical judgment. All recommendations must be validated by a licensed clinician.
         </div>
       </div>
-
-      ${drugCards}
-
-      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;font-size:9px;color:#334155;display:flex;justify-content:space-between;">
+      <div style="margin-bottom:12px;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;">Drugs Analysed (${results.length})</div>
+      ${results.map((r) => {
+        const col = getRiskColor(r.risk_assessment.risk_label);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(255,255,255,0.02);">
+          <div style="font-size:13px;font-weight:700;color:#f1f5f9;">${r.drug}</div>
+          <div style="display:inline-block;background:${col}18;border:1px solid ${col}44;color:${col};font-size:10px;font-weight:600;padding:2px 10px;border-radius:20px;text-transform:uppercase;">${r.risk_assessment.risk_label}</div>
+        </div>`;
+      }).join("")}
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:14px;margin-top:24px;font-size:9px;color:#334155;display:flex;justify-content:space-between;">
         <span>PharmaGuard v2.0 · RIFT 2026 Hackathon</span>
         <span>For research and demonstration purposes only</span>
+      </div>
+    </div>`;
+}
+
+function buildDrugPageHTML(r: DrugAnalysisResult): string {
+  const riskColor = getRiskColor(r.risk_assessment.risk_label);
+  const conf = (r.risk_assessment.confidence_score * 100).toFixed(0);
+  const variants = r.pharmacogenomic_profile.detected_variants;
+  const geneName = r.clinical_recommendation?.gene ?? r.pharmacogenomic_profile.primary_gene;
+
+  const variantRows = variants.map((v) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+      <td style="padding:5px 8px;font-family:monospace;color:#06B6D4;">${v.rsid}</td>
+      <td style="padding:5px 8px;font-family:monospace;color:#e2e8f0;">${v.genotype}</td>
+      <td style="padding:5px 8px;color:#e2e8f0;">${v.impact}</td>
+      <td style="padding:5px 8px;font-family:monospace;color:#94A3B8;">${[v.star_allele_1, v.star_allele_2].filter(Boolean).join("/") || "—"}</td>
+    </tr>`).join("");
+
+  const variantSection = variants.length > 0
+    ? `<div style="margin-bottom:18px;">
+        <div style="font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Detected Variants (${variants.length})</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;">
+          <thead><tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+            <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">rsID</th>
+            <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">Genotype</th>
+            <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">Impact</th>
+            <th style="text-align:left;padding:4px 8px;color:#475569;font-weight:600;">Star Alleles</th>
+          </tr></thead>
+          <tbody>${variantRows}</tbody>
+        </table>
+      </div>`
+    : `<div style="margin-bottom:18px;font-size:10px;color:#475569;font-style:italic;">No actionable variants detected — wild-type assumed.</div>`;
+
+  const recSection = r.clinical_recommendation?.recommendation
+    ? `<div style="margin-top:14px;font-size:10px;color:#64748b;border-left:2px solid rgba(6,182,212,0.3);padding-left:10px;">
+        <span style="font-weight:600;color:#06B6D4;">CPIC Recommendation: </span>${r.clinical_recommendation.recommendation}
+        ${r.clinical_recommendation.guideline_source ? `<span style="display:block;font-size:9px;color:#334155;margin-top:2px;">Source: ${r.clinical_recommendation.guideline_source}</span>` : ""}
+      </div>`
+    : "";
+
+  return `
+    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;box-sizing:border-box;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid rgba(6,182,212,0.15);">
+        <div>
+          <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Drug Analysis Report</div>
+          <div style="font-size:26px;font-weight:700;color:#f1f5f9;letter-spacing:-.02em;">${r.drug}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">${geneName} · ${r.pharmacogenomic_profile.phenotype} Metabolizer</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="display:inline-block;background:${riskColor}20;border:1px solid ${riskColor}55;color:${riskColor};font-size:13px;font-weight:700;padding:5px 16px;border-radius:24px;text-transform:uppercase;">${r.risk_assessment.risk_label}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:6px;">Confidence: ${conf}% · ${r.risk_assessment.severity} severity</div>
+        </div>
+      </div>
+      <div style="margin-bottom:18px;">
+        <div style="font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">Genomic Profile</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+          ${[
+            ["Diplotype", `<span style="font-family:monospace">${r.pharmacogenomic_profile.diplotype}</span>`],
+            ["Phenotype", r.pharmacogenomic_profile.phenotype],
+            ["Activity Score", String(r.pharmacogenomic_profile.activity_score ?? "—")],
+            ["Severity", `<span style="color:${riskColor}">${r.risk_assessment.severity.charAt(0).toUpperCase() + r.risk_assessment.severity.slice(1)}</span>`],
+          ].map(([label, val]) => `
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:7px;padding:10px 12px;">
+              <div style="font-size:8.5px;color:#64748b;margin-bottom:4px;">${label}</div>
+              <div style="font-size:12px;font-weight:600;color:#e2e8f0;">${val}</div>
+            </div>`).join("")}
+        </div>
+      </div>
+      ${variantSection}
+      <div style="margin-bottom:18px;">
+        <div style="font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">AI Clinical Explanation</div>
+        <div style="font-size:10.5px;color:#94A3B8;line-height:1.65;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:12px 14px;">
+          ${r.llm_generated_explanation.summary}
+        </div>
+      </div>
+      ${recSection}
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;margin-top:24px;font-size:9px;color:#334155;display:flex;justify-content:space-between;">
+        <span>PharmaGuard v2.0 · RIFT 2026</span>
+        <span>Patient ID: ${r.patient_id?.slice(0, 8) ?? "N/A"}</span>
       </div>
     </div>`;
 }
@@ -185,60 +153,35 @@ export default function ReportExporter({ results }: Props) {
         import("html2canvas"),
       ]);
 
-      // Mount the report div off-screen so fonts render correctly
-      const wrapper = document.createElement("div");
-      wrapper.style.cssText =
-        "position:fixed;top:-99999px;left:-99999px;z-index:-1;";
-      wrapper.innerHTML = buildReportHTML(results);
-      document.body.appendChild(wrapper);
-
-      const reportEl = wrapper.firstElementChild as HTMLElement;
-
-      const canvas = await html2canvas(reportEl, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#0a0e1a",
-        logging: false,
-      });
-
-      document.body.removeChild(wrapper);
-
-      const A4W = 210; // mm
-      const A4H = 297; // mm
-      const totalImgH = (canvas.height * A4W) / canvas.width; // mm equivalent height
-
+      const A4W = 210;
+      const A4H = 297;
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      let renderedMM = 0;
-      while (renderedMM < totalImgH) {
-        if (renderedMM > 0) pdf.addPage();
-
-        // How many canvas pixels fit into one A4 page
-        const pxPerMM = canvas.width / A4W;
-        const pageStartPx = renderedMM * pxPerMM;
-        const slicePxH = Math.min(A4H * pxPerMM, canvas.height - pageStartPx);
-        const sliceMM = slicePxH / pxPerMM;
-
-        const sliceCanvas = document.createElement("canvas");
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = slicePxH;
-        const ctx = sliceCanvas.getContext("2d")!;
-        ctx.drawImage(canvas, 0, -pageStartPx);
-
-        pdf.addImage(
-          sliceCanvas.toDataURL("image/png"),
-          "PNG",
-          0,
-          0,
-          A4W,
-          sliceMM
-        );
-        renderedMM += A4H;
+      async function renderToCanvas(html: string): Promise<HTMLCanvasElement> {
+        const wrapper = document.createElement("div");
+        wrapper.style.cssText = "position:fixed;top:-99999px;left:-99999px;z-index:-1;";
+        wrapper.innerHTML = html;
+        document.body.appendChild(wrapper);
+        const el = wrapper.firstElementChild as HTMLElement;
+        const canvas = await html2canvas(el, {
+          scale: 2, useCORS: true, backgroundColor: "#0a0e1a", logging: false,
+        });
+        document.body.removeChild(wrapper);
+        return canvas;
       }
 
-      pdf.save(
-        `pharma-guard-report-${new Date().toISOString().slice(0, 10)}.pdf`
-      );
+      function addCanvasPage(canvas: HTMLCanvasElement, isFirst: boolean) {
+        if (!isFirst) pdf.addPage();
+        const imgH = (canvas.height * A4W) / canvas.width;
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4W, Math.min(imgH, A4H));
+      }
+
+      addCanvasPage(await renderToCanvas(buildCoverHTML(results)), true);
+      for (const result of results) {
+        addCanvasPage(await renderToCanvas(buildDrugPageHTML(result)), false);
+      }
+
+      pdf.save(`pharma-guard-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
       console.error("PDF export failed:", err);
     } finally {
@@ -253,16 +196,11 @@ export default function ReportExporter({ results }: Props) {
       className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-card-border bg-card/50 hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
     >
       {loading ? (
-        <>
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          Generating PDF...
-        </>
+        <><Loader2 className="w-3.5 h-3.5 animate-spin" />Generating PDF...</>
       ) : (
-        <>
-          <Download className="w-3.5 h-3.5" />
-          Export PDF Report
-        </>
+        <><Download className="w-3.5 h-3.5" />Export PDF Report</>
       )}
     </button>
   );
 }
+
