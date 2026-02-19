@@ -44,8 +44,8 @@ const RISK_CONFIG: Record<
     armOffset: -25,
   },
   ineffective: {
-    color: "#f97316",
-    glow: "rgba(249,115,22,0.12)",
+    color: "#8b5cf6",
+    glow: "rgba(139,92,246,0.12)",
     mouth: "M 33 24 Q 36 28 38 24 Q 40 20 43 24",
     eyeType: "confused",
     armOffset: -18,
