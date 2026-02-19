@@ -186,17 +186,11 @@ bash
 # 12. Frontend runs at
 -http://localhost:3000
 
-# 13. Evironment variable
--Create .env file in backend:
--OPENAI_API_KEY=your_openai_api_key
--MODEL_NAME=gpt-4
--CONFIDENCE_THRESHOLD=0.75
-
-# 14. API Documentation
+# 13. API Documentation
 -Base URL
 -http://localhost:8000
 
-# 15. JSON Output Schema (Hackathon Required Format)
+# 14. JSON Output Schema (Hackathon Required Format)
 {
   "patient_id": "string",
   "drug": "string",
@@ -214,13 +208,13 @@ bash
   }
 }
 
-# 16. fileformat=VCFv4.2
+# 15. fileformat=VCFv4.2
 ##source=PharmaGuardDemo
 #CHROM POS ID REF ALT QUAL FILTER INFO FORMAT SAMPLE
 10 96702032 rs3892097 C T . PASS . GT 1/1
 22 42128945 rs9923231 C T . PASS . GT 0/1
 
-# 17. Deployment Instructions
+# 16. Deployment Instructions
 -Backend (Render)
 -Create new Web Service
 -Connect GitHub repo
@@ -231,7 +225,7 @@ bash
 -Set backend API URL in:
 -app/lib/api.ts
 
-# 18. Demo Instructions
+# 17. Demo Instructions
 Open frontend
 Upload demo VCF:
   sample_patient.vcf
@@ -243,7 +237,7 @@ Select drug
   JSON output
   Clinical confidence index
 
-# 19. Live Application
+# 18. Live Application
 
 Frontend:
 https://pharmaguard.vercel.app
@@ -251,19 +245,19 @@ https://pharmaguard.vercel.app
 Backend API:
 https://pharmaguard-api.onrender.com
 
-# 20. LinkedIn Demo Video
+# 19. LinkedIn Demo Video
 
 Video Walkthrough:
 https://linkedin.com/in/your-profile/demo-video-link
 
-# 21. Ethics & Safety
+# 20. Ethics & Safety
 In-memory genomic processing only
 No permanent storage
 CPIC-aligned deterministic logic
 Explainability-first system design
 Clinical decision support — not replacement
 
-# 22. Future Work
+# 21. Future Work
 Expanded gene coverage
 Multi-drug interaction modeling
 Pharmacogenomic Passport export

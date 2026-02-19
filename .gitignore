@@ -1,8 +1,9 @@
 # Environment secrets — never commit
 .env
-.env.*
+.env.local
+.env.*.local
 backend/.env
-backend/.env.*
+backend/.env.local
 
 # Python caches
 __pycache__/
