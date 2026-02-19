@@ -159,38 +159,77 @@ Components:
 ---
 
 # 7. Installation Instructions (Local Setup)
+# 7. Installation Instructions (Local Setup)
 
-## Clone Repository
+Follow these steps carefully to run PharmaGuard on your local machine.
+
+---
+
+## 🔹 Step 1: Clone the Repository
+
+Open your terminal (Command Prompt / PowerShell / Terminal) and run:
 
 bash
--git clone https://github.com/your-repo/pharmaguard.git
--cd PWHack-main
 
-# 8. Backend setup
--cd backend
--python -m venv venv
--source venv/bin/activate  # Windows: venv\Scripts\activate
--pip install -r requirements.txt
+git clone https://github.com/your-repo/pharmaguard.git
 
-# 9. Start backend
--uvicorn app.main:app --reload
+Now move into the project folder:
 
-# 10. Backend runs at 
-=http://127.0.0.1:8000
+cd PWHack-main
 
-# 11. Frontend Setup
--cd ../my-app
--npm install
--npm run dev
+# Backend Setup (FastAPI Server)
 
-# 12. Frontend runs at
--http://localhost:3000
+Navigate to Backend Folder
 
-# 13. API Documentation
--Base URL
--http://localhost:8000
+cd backend
 
-# 14. JSON Output Schema (Hackathon Required Format)
+# Create a Virtual Environment
+
+This creates an isolated Python environment.
+
+python -m venv venv
+
+# Activate the Virtual Environment
+
+Mac / Linux
+
+source venv/bin/activate
+
+Windows
+
+venv\Scripts\activate
+
+# Install Required Dependencies
+
+pip install -r requirements.txt
+
+# Start the backend server
+
+uvicorn app.main:app --reload
+
+Backend will start at:
+
+http://127.0.0.1:8000
+
+# Frontend setup
+
+Navigate to Frontend Folder
+
+cd ../my-app
+
+Install Frontend Dependencies
+
+npm install
+
+# Start Frontend Development Server
+
+npm run dev
+
+Frontend will run at:
+
+http://localhost:3000
+
+# 15. JSON Output Schema (Hackathon Required Format)
 {
   "patient_id": "string",
   "drug": "string",
@@ -208,59 +247,67 @@ bash
   }
 }
 
-# 15. fileformat=VCFv4.2
+# 16. fileformat=VCFv4.2
 ##source=PharmaGuardDemo
 #CHROM POS ID REF ALT QUAL FILTER INFO FORMAT SAMPLE
 10 96702032 rs3892097 C T . PASS . GT 1/1
 22 42128945 rs9923231 C T . PASS . GT 0/1
 
-# 16. Deployment Instructions
+# 17. Deployment Instructions
 -Backend (Render)
+
 -Create new Web Service
+
 -Connect GitHub repo
+
 -Set build command: pip install -r requirements.txt
+
 -Start command: uvicorn app.main:app --host 0.0.0.0 --port 10000
 
 -Frontend (vercel)
+
 -Set backend API URL in:
+
 -app/lib/api.ts
 
-# 17. Demo Instructions
+
+# 18. Demo Instructions
 Open frontend
+
 Upload demo VCF:
+
   sample_patient.vcf
+  
   demo_patient_multi_gene.vcf
+  
 Select drug
+
   View:
+  
   Risk card
+  
   LLM explanation
+  
   JSON output
+  
   Clinical confidence index
 
-# 18. Live Application
+# 19. Live Application
 
 Frontend:
+
 https://pharmaguard.vercel.app
 
 Backend API:
+
 https://pharmaguard-api.onrender.com
 
-# 19. LinkedIn Demo Video
+# 20. LinkedIn Demo Video
 
 Video Walkthrough:
+
 https://linkedin.com/in/your-profile/demo-video-link
 
-# 20. Ethics & Safety
-In-memory genomic processing only
-No permanent storage
-CPIC-aligned deterministic logic
-Explainability-first system design
-Clinical decision support — not replacement
-
-# 21. Future Work
-Expanded gene coverage
-Multi-drug interaction modeling
-Pharmacogenomic Passport export
 
 
 
