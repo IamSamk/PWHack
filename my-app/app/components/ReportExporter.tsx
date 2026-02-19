@@ -29,7 +29,7 @@ function buildCoverHTML(results: DrugAnalysisResult[]): string {
     year: "numeric", month: "long", day: "numeric",
   });
   return `
-    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;box-sizing:border-box;">
+    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;min-height:1131px;box-sizing:border-box;">
       <div style="border-bottom:1px solid rgba(6,182,212,0.2);padding-bottom:24px;margin-bottom:28px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
@@ -98,7 +98,7 @@ function buildDrugPageHTML(r: DrugAnalysisResult): string {
     : "";
 
   return `
-    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;box-sizing:border-box;">
+    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;min-height:1131px;box-sizing:border-box;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid rgba(6,182,212,0.15);">
         <div>
           <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Drug Analysis Report</div>
@@ -172,6 +172,9 @@ export default function ReportExporter({ results }: Props) {
 
       function addCanvasPage(canvas: HTMLCanvasElement, isFirst: boolean) {
         if (!isFirst) pdf.addPage();
+        // Fill entire page with the dark background first so no white shows
+        pdf.setFillColor(10, 14, 26); // #0a0e1a
+        pdf.rect(0, 0, A4W, A4H, "F");
         const imgH = (canvas.height * A4W) / canvas.width;
         pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4W, Math.min(imgH, A4H));
       }
