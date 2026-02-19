@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaGuard Analysis</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7fa; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2em; }
+        h1 { text-align: center; color: #2a3a4b; }
+        form { display: flex; flex-direction: column; gap: 1em; }
+        label { font-weight: bold; }
+        input[type="file"], input[type="text"] { padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #2a7ae2; color: #fff; border: none; padding: 0.75em; border-radius: 4px; font-size: 1em; cursor: pointer; }
+        button:hover { background: #1a5bb8; }
+        .result { margin-top: 2em; background: #eaf6ff; border-left: 4px solid #2a7ae2; padding: 1em; border-radius: 4px; }
+        .result h2 { margin-top: 0; }
+        .field { margin-bottom: 0.5em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PharmaGuard Analysis</h1>
+        <form method="post" enctype="multipart/form-data">
+            <label for="file">Upload VCF File:</label>
+            <input type="file" id="file" name="file" accept=".vcf" required>
+            <label for="drug">Drug Name:</label>
+            <input type="text" id="drug" name="drug" placeholder="e.g. clopidogrel" required>
+            <button type="submit">Analyze</button>
+        </form>
+        {% if result %}
+        <div class="result">
+            <h2>Analysis Result</h2>
+            <div class="field"><b>Patient ID:</b> {{ result.patient_id }}</div>
+            <div class="field"><b>Drug:</b> {{ result.drug }}</div>
+            <div class="field"><b>Primary Gene:</b> {{ result.primary_gene }}</div>
+            <div class="field"><b>Phenotype:</b> {{ result.phenotype }}</div>
+            <div class="field"><b>Risk Label:</b> {{ result.risk_label }}</div>
+            <div class="field"><b>Severity:</b> {{ result.severity }}</div>
+            <div class="field"><b>Recommendation:</b> {{ result.recommendation }}</div>
+            {% if result.llm_explanation %}
+            <div class="field"><b>AI Explanation:</b> {{ result.llm_explanation }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

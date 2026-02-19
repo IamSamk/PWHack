@@ -1,0 +1,32 @@
+##fileformat=VCFv4.2
+##source=PharmaGuardDemoExpanded
+##reference=GRCh38
+##INFO=<ID=GENE,Number=1,Type=String,Description="Gene symbol">
+##INFO=<ID=STAR,Number=1,Type=String,Description="Star allele designation">
+##INFO=<ID=RS,Number=1,Type=String,Description="dbSNP ID">
+
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+
+# --- CYP2D6 variants (Poor Metabolizer case) ---
+22	42128945	rs3892097	C	T	.	PASS	GENE=CYP2D6;STAR=*4;RS=rs3892097
+22	42130692	rs1065852	G	A	.	PASS	GENE=CYP2D6;STAR=*4;RS=rs1065852
+
+# --- CYP2C9 variants (Warfarin risk) ---
+10	96702044	rs1799853	C	T	.	PASS	GENE=CYP2C9;STAR=*2;RS=rs1799853
+10	96741053	rs1057910	A	C	.	PASS	GENE=CYP2C9;STAR=*3;RS=rs1057910
+
+# --- CYP2C19 variants (Clopidogrel ineffective) ---
+10	94761900	rs4244285	G	A	.	PASS	GENE=CYP2C19;STAR=*2;RS=rs4244285
+10	94781859	rs4986893	G	A	.	PASS	GENE=CYP2C19;STAR=*2;RS=rs4986893
+
+# --- SLCO1B1 variants (Simvastatin myopathy risk) ---
+12	21178665	rs4149056	T	C	.	PASS	GENE=SLCO1B1;STAR=*5;RS=rs4149056
+
+# --- TPMT variants (Dose adjustment needed) ---
+6	18130918	rs1800460	G	A	.	PASS	GENE=TPMT;STAR=*3A;RS=rs1800460
+
+# --- DPYD variants (Fluorouracil toxicity risk) ---
+1	97915614	rs3918290	G	A	.	PASS	GENE=DPYD;STAR=*2A;RS=rs3918290
+
+# --- Non-pharmacogenomic variant (should be ignored by engine) ---
+7	140453136	rs699	A	G	.	PASS	GENE=AGT;STAR=NA;RS=rs699

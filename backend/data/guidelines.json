@@ -1,0 +1,75 @@
+{
+	"genes": {
+		"CYP2C19": {
+			"variants": {
+				"rs4244285": {
+					"GG": "*1",
+					"AG": "*2",
+					"AA": "*2"
+				},
+				"rs12248560": {
+					"CC": "*1",
+					"CT": "*17",
+					"TT": "*17"
+				}
+			},
+			"diplotypes": {
+				"*1/*1": "Normal Metabolizer",
+				"*1/*2": "Intermediate Metabolizer",
+				"*2/*2": "Poor Metabolizer",
+				"*1/*17": "Rapid Metabolizer",
+				"*17/*17": "Ultrarapid Metabolizer"
+			}
+		},
+		"CYP2D6": {
+			"variants": {
+				"rs3892097": {
+					"GG": "*1",
+					"AG": "*4",
+					"AA": "*4"
+				}
+			},
+			"diplotypes": {
+				"*1/*1": "Normal Metabolizer",
+				"*1/*4": "Intermediate Metabolizer",
+				"*4/*4": "Poor Metabolizer"
+			}
+		}
+	},
+	"drug_risks": {
+		"CLOPIDOGREL": {
+			"Poor Metabolizer": {
+				"label": "Ineffective",
+				"severity": "high",
+				"rec": "Use alternative antiplatelet agent such as prasugrel or ticagrelor."
+			},
+			"Intermediate Metabolizer": {
+				"label": "Reduced Efficacy",
+				"severity": "moderate",
+				"rec": "Consider alternative antiplatelet therapy."
+			},
+			"Normal Metabolizer": {
+				"label": "Safe",
+				"severity": "none",
+				"rec": "Standard dose. No adjustment required."
+			}
+		},
+		"CODEINE": {
+			"Poor Metabolizer": {
+				"label": "Ineffective",
+				"severity": "high",
+				"rec": "Avoid codeine. Use non-opioid alternatives."
+			},
+			"Ultrarapid Metabolizer": {
+				"label": "Toxic Risk",
+				"severity": "high",
+				"rec": "Avoid codeine. Risk of life-threatening opioid toxicity."
+			},
+			"Normal Metabolizer": {
+				"label": "Safe",
+				"severity": "none",
+				"rec": "Standard dose. No adjustment required."
+			}
+		}
+	}
+}
