@@ -163,10 +163,10 @@ export default function Home() {
   const jsonPayload = drugResults.length === 1 ? drugResults[0] : drugResults.length > 1 ? drugResults : null;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen w-full">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-card-border bg-background/80 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-3 sm:px-5 py-3 flex items-center justify-between">
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-[rgba(6,182,212,0.1)]">
               <Dna className="w-5 h-5 text-accent" />
@@ -191,7 +191,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-3 sm:px-5 py-4">
+      <main className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-5">
         {/* ── Error Banner ── */}
         {error && (
           <div className="mb-6 flex items-start gap-3 px-4 py-3 rounded-xl border border-danger/30 bg-[rgba(239,68,68,0.05)] animate-fade-slide-up">
@@ -211,8 +211,8 @@ export default function Home() {
 
         {/* ── INPUT PHASE ── */}
         {phase === "input" && (
-          <div className="max-w-lg mx-auto space-y-5 animate-fade-slide-up">
-            <div className="text-center mb-8">
+          <div className="max-w-2xl mx-auto space-y-5 animate-fade-slide-up">
+            <div className="text-center mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(6,182,212,0.08)] text-accent text-xs font-medium mb-4">
                 <Dna className="w-3.5 h-3.5" />
                 CPIC-Aligned Analysis
@@ -361,7 +361,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-card-border mt-16">
-        <div className="max-w-5xl mx-auto px-3 sm:px-5 py-4 flex items-center justify-between text-xs text-muted">
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between text-xs text-muted">
           <span>PharmaGuard v2.0 — Precision Pharmacogenomic Risk Engine</span>
           <span>CPIC Guidelines • Groq Llama 3.3 XAI • RIFT 2026</span>
         </div>
