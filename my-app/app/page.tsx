@@ -15,18 +15,13 @@ import DrugSelector from "./components/DrugSelector";
 import PipelineFlowchart from "./components/PipelineFlowchart";
 import RiskCard from "./components/RiskCard";
 import ExplanationPanel from "./components/ExplanationPanel";
-import BurdenScoreCard from "./components/BurdenScoreCard";
 import JSONViewer from "./components/JSONViewer";
-import CounterfactualCard from "./components/CounterfactualCard";
 
-import { uploadVCF, getDrugs, analyzeDrug, runCounterfactual, APIError } from "./lib/api";
+import { getDrugs, analyzeDrug, APIError } from "./lib/api";
 import type {
   PipelineStep,
-  UploadResponse,
   DrugAnalysisResult,
-  CounterfactualResult,
   LLMExplanation,
-  BurdenScore,
 } from "./lib/types";
 
 // ── Pipeline step definitions ──
@@ -51,19 +46,14 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   // Processing state
-  const [steps, setSteps] = useState<PipelineStep[]>(PIPELINE_STEPS.map(s => ({...s})));
+  const [steps, setSteps] = useState<PipelineStep[]>(PIPELINE_STEPS.map(s => ({ ...s })));
   const [currentDrug, setCurrentDrug] = useState<string>("");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
 
   // Results
   const [drugResults, setDrugResults] = useState<DrugAnalysisResult[]>([]);
   const [activeExplanation, setActiveExplanation] = useState<LLMExplanation | null>(null);
   const [llmLoading, setLlmLoading] = useState(false);
-  const [burdenScore, setBurdenScore] = useState<BurdenScore | null>(null);
-  const [counterfactualResult, setCounterfactualResult] = useState<CounterfactualResult | null>(null);
   const [jsonDrawerOpen, setJsonDrawerOpen] = useState(false);
-  const [fullJsonPayload, setFullJsonPayload] = useState<unknown>(null);
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -89,7 +79,6 @@ export default function Home() {
     setSteps(PIPELINE_STEPS.map(s => ({ ...s })));
   }, []);
 
-  // ── Animated step progression ──
   const animateStep = useCallback(
     (stepId: string, description?: string): Promise<void> => {
       return new Promise(resolve => {
@@ -111,31 +100,18 @@ export default function Home() {
     setPhase("processing");
     setDrugResults([]);
     setActiveExplanation(null);
-    setBurdenScore(null);
-    setCounterfactualResult(null);
-    setFullJsonPayload(null);
+    setJsonDrawerOpen(false);
     resetSteps();
 
     try {
-      // Step 1-3: Upload VCF (parse + extract + star alleles)
+      // VCF pipeline animation
       await animateStep("parse", "Parsing VCF file: " + vcfFile.name);
       await animateStep("extract", "Extracting pharmacogene variants...");
+      await animateStep("star", "Inferring star alleles...");
+      await animateStep("phenotype", "Assigning metabolizer phenotypes...");
 
-      const upload = await uploadVCF(vcfFile);
-      setSessionId(upload.session_id);
-      setUploadData(upload);
-
-      await animateStep("star", `Identified ${upload.pharmacogene_variants_detected} pharmacogene variants across ${Object.keys(upload.genomic_profile).length} genes`);
-
-      // Step 4: Phenotype assignment
-      const phenoSummary = Object.entries(upload.genomic_profile)
-        .map(([gene, data]) => `${gene}: ${data.phenotype}`)
-        .join(", ");
-      await animateStep("phenotype", phenoSummary || "Computing phenotypes...");
-
-      // Step 5-7: Analyze each drug
+      // Analyze each drug (each call sends VCF + drug to POST /analyze)
       const allResults: DrugAnalysisResult[] = [];
-      const drugAnalyses: Record<string, unknown> = {};
 
       for (const drug of selectedDrugs) {
         setCurrentDrug(drug);
@@ -146,14 +122,12 @@ export default function Home() {
         updateStep("risk", "active", `Classifying risk for ${drug}...`);
         await new Promise(r => setTimeout(r, 200));
 
-        // Call backend (includes LLM)
         setLlmLoading(true);
         updateStep("llm", "active", `Generating explanation for ${drug} via Mistral 7B...`);
 
         try {
-          const result = await analyzeDrug(upload.session_id, drug);
+          const result = await analyzeDrug(vcfFile, drug);
           allResults.push(result);
-          drugAnalyses[drug] = result;
 
           updateStep("risk", "completed", `${drug}: ${result.risk_assessment.risk_label} (${result.risk_assessment.severity})`);
           updateStep("llm", "completed", `Explanation generated for ${drug}`);
@@ -169,53 +143,9 @@ export default function Home() {
         }
       }
 
-      // Compute burden score from results
-      if (allResults.length > 1) {
-        const severityWeights: Record<string, number> = {
-          critical: 4, high: 3, moderate: 2, low: 1, none: 0,
-        };
-        let totalPbs = 0;
-        const highRiskPairs: { drug: string; gene: string; phenotype: string; risk_label: string; severity: string }[] = [];
-
-        for (const r of allResults) {
-          const sev = r.risk_assessment.severity;
-          totalPbs += severityWeights[sev] || 0;
-          if (sev === "critical" || sev === "high") {
-            highRiskPairs.push({
-              drug: r.drug,
-              gene: r.pharmacogenomic_profile.primary_gene,
-              phenotype: r.pharmacogenomic_profile.phenotype,
-              risk_label: r.risk_assessment.risk_label,
-              severity: sev,
-            });
-          }
-        }
-
-        const maxPbs = allResults.length * 4;
-        let riskTier = "MINIMAL";
-        if (totalPbs >= 12) riskTier = "CRITICAL";
-        else if (totalPbs >= 8) riskTier = "HIGH";
-        else if (totalPbs >= 4) riskTier = "MODERATE";
-        else if (totalPbs > 0) riskTier = "LOW";
-
-        const burden: BurdenScore = {
-          pharmacogenomic_burden_score: totalPbs,
-          normalized_pbs: Math.round((totalPbs / maxPbs) * 1000) / 1000,
-          risk_tier: riskTier,
-          gene_burdens: {},
-          high_risk_pairs: highRiskPairs,
-          total_genes_affected: new Set(allResults.map(r => r.pharmacogenomic_profile.primary_gene)).size,
-          drugs_analyzed: allResults.length,
-        };
-
-        setBurdenScore(burden);
-      }
-
-      setFullJsonPayload(drugAnalyses);
       setCurrentDrug("");
       setPhase("results");
 
-      // Scroll to results
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 300);
@@ -226,40 +156,23 @@ export default function Home() {
     }
   }, [vcfFile, selectedDrugs, animateStep, updateStep, resetSteps]);
 
-  // ── Counterfactual handler ──
-  const handleCounterfactual = useCallback(
-    async (drug: string) => {
-      if (!sessionId) return;
-      try {
-        const result = await runCounterfactual(sessionId, drug, "NM");
-        setCounterfactualResult(result);
-      } catch (err) {
-        const msg = err instanceof APIError ? err.detail : String(err);
-        setError(`Counterfactual failed: ${msg}`);
-      }
-    },
-    [sessionId]
-  );
-
   // ── Reset everything ──
   const handleReset = useCallback(() => {
     setPhase("input");
     setVcfFile(null);
     setSelectedDrugs([]);
     setError(null);
-    setSessionId(null);
-    setUploadData(null);
     setDrugResults([]);
     setActiveExplanation(null);
-    setBurdenScore(null);
-    setCounterfactualResult(null);
-    setFullJsonPayload(null);
     setJsonDrawerOpen(false);
     resetSteps();
   }, [resetSteps]);
 
   const canAnalyze = vcfFile !== null && selectedDrugs.length > 0 && phase === "input";
   const isProcessing = phase === "processing";
+
+  // Build JSON payload: single result if 1 drug, array if multiple
+  const jsonPayload = drugResults.length === 1 ? drugResults[0] : drugResults.length > 1 ? drugResults : null;
 
   return (
     <div className="min-h-screen">
@@ -311,7 +224,6 @@ export default function Home() {
         {/* ── INPUT PHASE ── */}
         {phase === "input" && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fade-slide-up">
-            {/* Hero */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(6,182,212,0.08)] text-accent text-xs font-medium mb-4">
                 <Dna className="w-3.5 h-3.5" />
@@ -326,7 +238,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Upload */}
             <div>
               <label className="block text-xs font-medium text-muted mb-2">
                 Genomic Data
@@ -339,7 +250,6 @@ export default function Home() {
               />
             </div>
 
-            {/* Drug selector */}
             <div>
               <label className="block text-xs font-medium text-muted mb-2">
                 Drugs to Analyze
@@ -352,7 +262,6 @@ export default function Home() {
               />
             </div>
 
-            {/* Analyze button */}
             <button
               onClick={handleAnalyze}
               disabled={!canAnalyze}
@@ -386,50 +295,22 @@ export default function Home() {
                     steps={steps}
                     currentDrug={currentDrug}
                   />
-
-                  {/* Upload summary */}
-                  {uploadData && (
-                    <div className="mt-4 pt-4 border-t border-card-border">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted mb-2">
-                        Genomic Profile
-                      </p>
-                      <div className="space-y-1">
-                        {Object.entries(uploadData.genomic_profile).map(([gene, data]) => (
-                          <div key={gene} className="flex items-center justify-between text-xs">
-                            <span className="font-mono text-accent">{gene}</span>
-                            <span className="text-muted">
-                              {data.diplotype} → {data.phenotype}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
 
             {/* RIGHT: Results */}
             <div ref={resultsRef} className="lg:col-span-8 space-y-6">
-              {/* Processing indicator */}
               {isProcessing && drugResults.length === 0 && (
                 <div className="flex items-center gap-3 px-5 py-4 rounded-xl border border-card-border bg-card/50">
                   <Loader2 className="w-5 h-5 text-accent animate-spin" />
-                  <span className="text-sm text-muted">
-                    Processing genomic data...
-                  </span>
+                  <span className="text-sm text-muted">Processing genomic data...</span>
                 </div>
               )}
 
-              {/* Risk Cards */}
               {drugResults.map((result) => (
                 <div key={result.drug} className="space-y-4">
-                  <RiskCard
-                    result={result}
-                    onCounterfactual={handleCounterfactual}
-                  />
-
-                  {/* Show explanation for this drug */}
+                  <RiskCard result={result} />
                   <ExplanationPanel
                     explanation={result.llm_generated_explanation}
                     loading={false}
@@ -437,23 +318,12 @@ export default function Home() {
                 </div>
               ))}
 
-              {/* LLM loading for current drug */}
               {llmLoading && (
                 <ExplanationPanel explanation={null} loading={true} />
               )}
 
-              {/* Burden Score */}
-              {burdenScore && phase === "results" && (
-                <BurdenScoreCard burden={burdenScore} />
-              )}
-
-              {/* Counterfactual */}
-              {counterfactualResult && (
-                <CounterfactualCard result={counterfactualResult} />
-              )}
-
-              {/* JSON Drawer */}
-              {fullJsonPayload && phase === "results" && (
+              {/* JSON Output */}
+              {jsonPayload && phase === "results" && (
                 <div>
                   <button
                     onClick={() => setJsonDrawerOpen(!jsonDrawerOpen)}
@@ -467,7 +337,7 @@ export default function Home() {
 
                   {jsonDrawerOpen && (
                     <div className="mt-2 animate-fade-slide-up">
-                      <JSONViewer data={fullJsonPayload} />
+                      <JSONViewer data={jsonPayload} />
                     </div>
                   )}
                 </div>
@@ -477,7 +347,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-card-border mt-16">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-muted">
           <span>PharmaGuard v2.0 — Precision Pharmacogenomic Risk Engine</span>

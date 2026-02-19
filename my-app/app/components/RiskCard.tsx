@@ -8,14 +8,12 @@ import {
   ShieldQuestion,
   ChevronDown,
   Dna,
-  Activity,
 } from "lucide-react";
 import { useState } from "react";
 import type { DrugAnalysisResult } from "../lib/types";
 
 interface RiskCardProps {
   result: DrugAnalysisResult;
-  onCounterfactual?: (drug: string) => void;
 }
 
 const RISK_CONFIG: Record<string, { color: string; bg: string; icon: typeof Shield }> = {
@@ -31,7 +29,7 @@ function getRiskConfig(label: string) {
   return RISK_CONFIG[key] || RISK_CONFIG["unknown"];
 }
 
-export default function RiskCard({ result, onCounterfactual }: RiskCardProps) {
+export default function RiskCard({ result }: RiskCardProps) {
   const [expanded, setExpanded] = useState(false);
   const risk = result.risk_assessment;
   const pgx = result.pharmacogenomic_profile;
@@ -110,11 +108,6 @@ export default function RiskCard({ result, onCounterfactual }: RiskCardProps) {
             <span className="text-muted">Phenotype:</span>
             <span className="font-medium">{pgx.phenotype}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-accent" />
-            <span className="text-muted">Activity:</span>
-            <span className="font-mono font-medium">{pgx.activity_score}</span>
-          </div>
         </div>
       </div>
 
@@ -135,7 +128,7 @@ export default function RiskCard({ result, onCounterfactual }: RiskCardProps) {
             {rec.recommendation}
           </p>
           <p className="text-xs text-muted mt-2">
-            Source: {rec.guideline_source} • {risk.evidence_level}
+            Source: {rec.guideline_source}
           </p>
 
           {/* Detected variants */}
@@ -164,15 +157,7 @@ export default function RiskCard({ result, onCounterfactual }: RiskCardProps) {
             </div>
           )}
 
-          {/* Counterfactual button */}
-          {onCounterfactual && (
-            <button
-              onClick={() => onCounterfactual(result.drug)}
-              className="mt-3 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 rounded-lg hover:bg-[rgba(6,182,212,0.1)] transition-colors cursor-pointer"
-            >
-              What if Normal Metabolizer?
-            </button>
-          )}
+          {/* Counterfactual removed — single endpoint design */}
         </div>
       )}
     </div>

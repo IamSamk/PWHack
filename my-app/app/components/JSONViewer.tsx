@@ -9,7 +9,6 @@ interface JSONViewerProps {
 }
 
 export default function JSONViewer({ data, filename = "pharmaguard_result.json" }: JSONViewerProps) {
-  const [tab, setTab] = useState<"summary" | "json">("summary");
   const [copied, setCopied] = useState(false);
 
   const jsonString = JSON.stringify(data, null, 2);
@@ -30,34 +29,14 @@ export default function JSONViewer({ data, filename = "pharmaguard_result.json" 
     URL.revokeObjectURL(url);
   };
 
-  // Build a summary view from the data
-  const summary = buildSummary(data);
-
   return (
     <div className="border border-card-border rounded-xl overflow-hidden">
-      {/* Tabs */}
+      {/* Header */}
       <div className="flex items-center border-b border-card-border">
-        <button
-          onClick={() => setTab("summary")}
-          className={`
-            px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer
-            ${tab === "summary" ? "text-accent border-b-2 border-accent bg-[rgba(6,182,212,0.05)]" : "text-muted hover:text-foreground"}
-          `}
-        >
-          Summary View
-        </button>
-        <button
-          onClick={() => setTab("json")}
-          className={`
-            px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer
-            ${tab === "json" ? "text-accent border-b-2 border-accent bg-[rgba(6,182,212,0.05)]" : "text-muted hover:text-foreground"}
-          `}
-        >
+        <div className="px-4 py-2.5 text-xs font-medium text-accent flex items-center gap-1.5">
           <Code className="w-3.5 h-3.5" />
           JSON Output
-        </button>
-
-        {/* Actions */}
+        </div>
         <div className="ml-auto flex items-center gap-1 pr-2">
           <button
             onClick={copyToClipboard}
@@ -80,21 +59,10 @@ export default function JSONViewer({ data, filename = "pharmaguard_result.json" 
         </div>
       </div>
 
-      {/* Content */}
-      {tab === "summary" ? (
-        <div className="p-4 max-h-96 overflow-y-auto">
-          {summary.map((item, i) => (
-            <div key={i} className="mb-2">
-              <span className="text-xs text-muted">{item.key}:</span>{" "}
-              <span className="text-xs font-mono text-foreground">{item.value}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="p-4 max-h-96 overflow-auto">
-          <JSONTree data={data} />
-        </div>
-      )}
+      {/* JSON Tree */}
+      <div className="p-4 max-h-[32rem] overflow-auto">
+        <JSONTree data={data} />
+      </div>
     </div>
   );
 }
@@ -105,27 +73,21 @@ function JSONTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
   if (data === null || data === undefined) {
     return <span className="text-muted text-xs font-mono">null</span>;
   }
-
   if (typeof data === "string") {
     return <span className="text-safe text-xs font-mono">&quot;{data}&quot;</span>;
   }
-
   if (typeof data === "number") {
     return <span className="text-accent text-xs font-mono">{data}</span>;
   }
-
   if (typeof data === "boolean") {
     return <span className="text-warn text-xs font-mono">{data.toString()}</span>;
   }
-
   if (Array.isArray(data)) {
     return <ArrayNode data={data} depth={depth} />;
   }
-
   if (typeof data === "object") {
     return <ObjectNode data={data as Record<string, unknown>} depth={depth} />;
   }
-
   return <span className="text-xs font-mono">{String(data)}</span>;
 }
 
@@ -139,9 +101,7 @@ function ObjectNode({ data, depth }: { data: Record<string, unknown>; depth: num
         onClick={() => setExpanded(!expanded)}
         className="inline-flex items-center text-xs text-muted hover:text-foreground cursor-pointer"
       >
-        <ChevronRight
-          className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-        />
+        <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
         <span className="font-mono">{`{${expanded ? "" : `...${keys.length} keys}`}`}</span>
       </button>
       {expanded && (
@@ -168,9 +128,7 @@ function ArrayNode({ data, depth }: { data: unknown[]; depth: number }) {
         onClick={() => setExpanded(!expanded)}
         className="inline-flex items-center text-xs text-muted hover:text-foreground cursor-pointer"
       >
-        <ChevronRight
-          className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-        />
+        <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
         <span className="font-mono">[{expanded ? "" : `...${data.length} items]`}</span>
       </button>
       {expanded && (
@@ -186,40 +144,4 @@ function ArrayNode({ data, depth }: { data: unknown[]; depth: number }) {
       )}
     </div>
   );
-}
-
-// ── Summary builder ──
-
-function buildSummary(data: unknown): { key: string; value: string }[] {
-  const items: { key: string; value: string }[] = [];
-  if (!data || typeof data !== "object") return items;
-
-  const obj = data as Record<string, unknown>;
-
-  if (obj.patient_id) items.push({ key: "Patient ID", value: String(obj.patient_id).slice(0, 12) + "..." });
-  if (obj.drug) items.push({ key: "Drug", value: String(obj.drug) });
-  if (obj.timestamp) items.push({ key: "Timestamp", value: String(obj.timestamp) });
-
-  const risk = obj.risk_assessment as Record<string, unknown> | undefined;
-  if (risk) {
-    items.push({ key: "Risk Label", value: String(risk.risk_label) });
-    items.push({ key: "Severity", value: String(risk.severity) });
-    items.push({ key: "Confidence", value: `${Math.round(Number(risk.confidence_score) * 100)}%` });
-  }
-
-  const pgx = obj.pharmacogenomic_profile as Record<string, unknown> | undefined;
-  if (pgx) {
-    items.push({ key: "Gene", value: String(pgx.primary_gene) });
-    items.push({ key: "Diplotype", value: String(pgx.diplotype) });
-    items.push({ key: "Phenotype", value: String(pgx.phenotype) });
-    items.push({ key: "Activity Score", value: String(pgx.activity_score) });
-  }
-
-  const qm = obj.quality_metrics as Record<string, unknown> | undefined;
-  if (qm) {
-    items.push({ key: "VCF Parsed", value: qm.vcf_parsing_success ? "Yes" : "No" });
-    items.push({ key: "LLM Generated", value: qm.llm_explanation_generated ? "Yes" : "No" });
-  }
-
-  return items;
 }

@@ -1,15 +1,10 @@
 // ── PharmaGuard API Client ──
 
-import type {
-  UploadResponse,
-  DrugAnalysisResult,
-  BatchAnalysisResult,
-  CounterfactualResult,
-} from "./types";
+import type { DrugAnalysisResult } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-class APIError extends Error {
+export class APIError extends Error {
   status: number;
   detail: string;
   constructor(status: number, detail: string) {
@@ -34,55 +29,25 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-/** Upload a VCF file. Returns session_id + genomic profile. */
-export async function uploadVCF(file: File): Promise<UploadResponse> {
-  const form = new FormData();
-  form.append("file", file);
-  return request<UploadResponse>("/upload-vcf", {
-    method: "POST",
-    body: form,
-  });
-}
-
 /** Get list of available drugs. */
 export async function getDrugs(): Promise<string[]> {
   const data = await request<{ available_drugs: string[]; count: number }>("/drugs");
   return data.available_drugs;
 }
 
-/** Analyze a single drug (includes LLM explanation). */
+/**
+ * Analyze a single drug against a VCF file.
+ * Sends file + drug as multipart form to POST /analyze.
+ */
 export async function analyzeDrug(
-  sessionId: string,
+  file: File,
   drug: string
 ): Promise<DrugAnalysisResult> {
-  return request<DrugAnalysisResult>(
-    `/analyze?session_id=${encodeURIComponent(sessionId)}&drug=${encodeURIComponent(drug)}`,
-    { method: "POST" }
-  );
+  const form = new FormData();
+  form.append("file", file);
+  form.append("drug", drug.toUpperCase());
+  return request<DrugAnalysisResult>("/analyze", {
+    method: "POST",
+    body: form,
+  });
 }
-
-/** Batch analyze multiple drugs. */
-export async function analyzeBatch(
-  sessionId: string,
-  drugs?: string[]
-): Promise<BatchAnalysisResult> {
-  const drugsParam = drugs ? `&drugs=${drugs.join(",")}` : "";
-  return request<BatchAnalysisResult>(
-    `/analyze-batch?session_id=${encodeURIComponent(sessionId)}${drugsParam}`,
-    { method: "POST" }
-  );
-}
-
-/** Run counterfactual simulation. */
-export async function runCounterfactual(
-  sessionId: string,
-  drug: string,
-  targetPhenotype: string = "NM"
-): Promise<CounterfactualResult> {
-  return request<CounterfactualResult>(
-    `/counterfactual?session_id=${encodeURIComponent(sessionId)}&drug=${encodeURIComponent(drug)}&target_phenotype=${encodeURIComponent(targetPhenotype)}`,
-    { method: "POST" }
-  );
-}
-
-export { APIError };
