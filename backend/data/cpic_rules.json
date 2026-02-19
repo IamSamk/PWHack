@@ -1,0 +1,142 @@
+{
+  "AZATHIOPRINE": {
+    "primary_gene": "TPMT",
+    "phenotype_rules": {
+      "IM": {
+        "risk_label": "Adjust Dosage",
+        "severity": "moderate",
+        "recommendation": "updated the recommendations for patients who are intermediate metabolizers of both TPMT and NUDT15 . Patients who are intermediate metabolizers or possible intermediate metabolizers for both genes are recommended to begin with a starting dose of 20-50% of the normal dosage. The recommendations in the genotype picker tool and on this annotation"
+      },
+      "PM": {
+        "risk_label": "Adjust Dosage",
+        "severity": "moderate",
+        "recommendation": "l dose of azathioprine for patients that are TPMT poor metabolizers and reduce initial dose for patients that are TPMT intermediate metabolizers."
+      },
+      "NM": {
+        "risk_label": "Safe",
+        "severity": "none",
+        "recommendation": "Normal TPMT activity. Use azathioprine per standard dosing. Monitor blood counts as per standard practice."
+      }
+    }
+  },
+  "FLUOROURACIL": {
+    "primary_gene": "DPYD",
+    "phenotype_rules": {
+      "PM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "e in later cycles if no toxicity is observed. For poor metabolizers, the administration of fluoropyrimidines is contraindicated, and other therapeutic options should be considered. Table 4 Dosing of fluoropyrimidines according to DPD phenotype based on genotype Phenotype Genotype Implications Dosing recommendations N"
+      },
+      "IM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "dine toxicity According to the data sheet Intermediate metabolizer (activity score 1–1.5) Wild-type allele and mutated allele (*2A or *13 or c.2846A&gt;T or HapB3) &nbsp; Two mutated alleles (c.2846A&gt;T or HapB3) Decreased DPD activity (30–70%) and increased risk for severe or even fatal drug toxicity when treated with fluoropyrimidin"
+      },
+      "NM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "sification of recommendations d DPYD Normal Metabolizer 2 An individual carrying two normal alleles c.[=];[=], c.[85T&gt;C e ];[=], c.[1627A&gt;G f ];[=] Normal DPD activity and “normal” risk for fluoropyrimidine toxicity Based on genotype, there is no indication to change dose or therapy. Use label-recommended dosage and adm"
+      }
+    }
+  },
+  "CLOPIDOGREL": {
+    "primary_gene": "CYP2D6",
+    "phenotype_rules": {
+      "PM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "Strong No recommendation CYP2C19 likely poor metabolizer d An individual carrying one decreased function allele and one no function allele *2/*9, *3/*9 Significantly reduced clopidogrel active metabolite formation; increased on-treatment platelet reactivity; increased risk for adverse cardiac and cerebrovascular events Avoid clop"
+      },
+      "IM": {
+        "risk_label": "Adjust Dosage",
+        "severity": "moderate",
+        "recommendation": ". For patients who are CYP2D6 poor metabolizers, intermediate metabolizers, or ultrarapid metabolizers, they recommend selecting an alternative drug or being extra alert to Adverse Drug Events and adjusting dose to clinical response. Phenotype (Genotype) Therapeutic Dose Recommendation Level of Evidence Clinical Relevance P"
+      },
+      "RM": {
+        "risk_label": "Safe",
+        "severity": "none",
+        "recommendation": "diovascular indications c CYP2C19 ultrarapid metabolizer An individual carrying two increased function alleles *17/*17 Increased clopidogrel active metabolite formation; lower on-treatment platelet reactivity; no association with higher bleeding risk If considering clopidogrel, use at standard dose (75 mg/day) Strong No recom"
+      },
+      "NM": {
+        "risk_label": "Safe",
+        "severity": "none",
+        "recommendation": "g/day) Strong No recommendation CYP2C19 normal metabolizer An individual carrying two normal function alleles *1/*1 Normal clopidogrel active metabolite formation; normal on-treatment platelet reactivity If considering clopidogrel, use at standard dose (75 mg/day) Strong Strong CYP2C19 likely intermediate metabolizer d"
+      },
+      "URM": {
+        "risk_label": "Safe",
+        "severity": "none",
+        "recommendation": "CYP2C19 ultrarapid metabolizer. Enhanced activation of clopidogrel. Standard dosing appropriate. May have slightly increased bleeding risk."
+      }
+    }
+  },
+  "CODEINE": {
+    "primary_gene": "CYP2D6",
+    "phenotype_rules": {
+      "PM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "der a non-tramadol opioid Moderate CYP2D6 poor metabolizer 0 0 *3/*4, *4/*4, *5/*5, *5/*6 Greatly reduced morphine formation leading to diminished analgesia Avoid codeine use because of possibility of diminished analgesia. If opioid use is warranted, consider a non-tramadol opioid. Strong CYP2D6 Indeterminate n/a An"
+      },
+      "IM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "commended starting dosing is also recommended for intermediate metabolizers; these patients should be monitored closely for less than optimal response and should be offered an alternative analgesic if warranted.&quot; &quot;For CYP2D6 poor metabolizers, current evidence supports the avoidance of (...) tramadol and the use of an alternative analge"
+      },
+      "RM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "cation of recommendation d CYP2D6 ultrarapid metabolizer &gt;2.25 &gt;2.25 *1/*1xN, *1/*2xN, *2/*2xN c Increased formation of morphine leading to higher risk of toxicity. Avoid codeine use because of potential for serious toxicity. If opioid use is warranted, consider a non-tramadol opioid. Strong CYP2D6 normal metab"
+      },
+      "NM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "viduals with IM (intermediate metabolizer) or EM (extensive metabolizer) CYP2D6 genotypes, codeine can be used as per standard of care. Existing evidence suggests that caution is still warranted in CYP2D6 EMs receiving codeine if they are receiving maximal therapeutic doses of codeine and have additional risk factors for toxicity. Who sh"
+      },
+      "URM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "Avoid codeine. CYP2D6 ultrarapid metabolizers convert codeine to morphine at greatly increased rates, risking fatal respiratory depression. Use non-opioid analgesic."
+      }
+    }
+  },
+  "SIMVASTATIN": {
+    "primary_gene": "SLCO1B1",
+    "phenotype_rules": {
+      "IM": {
+        "risk_label": "Unknown",
+        "severity": "low",
+        "recommendation": ", bilirubin and 17-beta-glucuronosyl estradiol). Decreased function of this transporter (inherited through genetic variability or acquired through drug-mediated inhibition) can markedly increase the systemic exposure to statins, the putative causal factor underlying the link to SAMS. The SLCO1B1 gene locus occupies 109 kb on chromosome 12 (Chr 12p"
+      },
+      "NM": {
+        "risk_label": "Adjust Dosage",
+        "severity": "moderate",
+        "recommendation": "Classification of recommendations d Normal function An individual carrying two normal function alleles or one normal plus one increased function allele *1/*1, *1/*14 Typical myopathy risk and statin exposure Prescribe desired starting dose and adjust doses based on disease-specific guidelines. Strong Increased function"
+      },
+      "PM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "tatin should be considered. Patients with SLCO1B1 poor function should also avoid fluvastatin doses greater than 40mg and and adjust doses of fluvastatin based on disease-specific guidelines. Patients with both SLCO1B1 poor function and CYP2C9 IM/PM should be prescribed an alternative statin depending on the desired potency."
+      }
+    }
+  },
+  "WARFARIN": {
+    "primary_gene": "CYP2C9",
+    "phenotype_rules": {
+      "IM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "considered when initiating NSAID therapy. CYP2C9 decreased function allele carriers are at higher risk of supratherapeutic INR or major bleeding with concomitant use of warfarin or other coumarin anticoagulants with NSAIDs, compared to NMs. Thus, it is recommended that this drug combination be avoided in CYP2C9 IMs and PMs. Variants in other genes"
+      },
+      "NM": {
+        "risk_label": "Unknown",
+        "severity": "low",
+        "recommendation": "trations (and thus INR) is reached in 7—8 days in extensive metabolizers while it takes 11 days to reach equilibrium in slow metabolizers. Adapted Table 2: Suggested dosage for warfarin (mg/d) as a function of CYP2C9 and VKORC1 genotypes. VKORC1 Genotype CYP2C9*1/*1 CYP2C9*1/*2 CYP2C9*1/*3 CYP2C9*2/*2 CYP2C9*2/*3"
+      },
+      "PM": {
+        "risk_label": "Toxic",
+        "severity": "critical",
+        "recommendation": "Significantly reduced warfarin metabolism. Reduce initial dose by 50-80%. High risk of supratherapeutic INR and major bleeding. Consider alternative anticoagulant or very low starting dose with intensive INR monitoring."
+      }
+    }
+  }
+}

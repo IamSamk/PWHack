@@ -4,5 +4,5 @@ python-multipart
 pydantic
 langchain
 langchain-ollama
-vcfpy
 python-dotenv
+jinja2
