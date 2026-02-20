@@ -171,7 +171,7 @@ Open your terminal (Command Prompt / PowerShell / Terminal) and run:
 
 bash
 
-git clone https://github.com/your-repo/pharmaguard.git
+git clone https://github.com/IamSamk/PWHack.git
 
 Now move into the project folder:
 
