@@ -30,6 +30,11 @@ app.add_middleware(
 )
 
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
 def _build_response(engine_result: dict, pathway: list, explanation: dict) -> dict:
