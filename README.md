@@ -171,7 +171,7 @@ Open your terminal (Command Prompt / PowerShell / Terminal) and run:
 
 bash
 
-git clone https://github.com/your-repo/pharmaguard.git
+git clone https://github.com/IamSamk/PWHack.git
 
 Now move into the project folder:
 
@@ -306,7 +306,7 @@ https://pharmaguard-api.onrender.com
 
 Video Walkthrough:
 
-https://linkedin.com/in/your-profile/demo-video-link
+https://www.linkedin.com/posts/indranilsaha6_rift2026-24hourhackathon-precisionmedicine-activity-7430435916994748417-X6m8?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFTtW2UB6ydYoh60DAcAx8BOmZLceaE7USs
 
 
 
