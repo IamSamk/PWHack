@@ -37,7 +37,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
   { id: "star", label: "STAR Allele Inference", description: "Mapping variants to star allele nomenclature", status: "pending" },
   { id: "phenotype", label: "Phenotype Assignment", description: "Computing activity scores and metabolizer phenotypes", status: "pending" },
   { id: "cpic", label: "CPIC Rule Engine", description: "Matching phenotypes against CPIC dosing guidelines", status: "pending" },
-  { id: "risk", label: "Risk Classification", description: "Assigning risk labels with confidence scores", status: "pending" },
+  { id: "risk", label: "Risk Classification", description: "Deterministic CPIC rule lookup — no LLM involved", status: "pending" },
   { id: "llm", label: "LLM Explanation", description: "Generating AI-powered clinical explanation via Groq Llama 3.3", status: "pending" },
 ];
 
@@ -110,17 +110,19 @@ export default function Home() {
       setCurrentDrug(drugLabel);
 
       updateStep("cpic", "active", `Applying CPIC rules for ${drugLabel}...`);
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 400));
       updateStep("cpic", "completed", `CPIC rules matched for ${selectedDrugs.length} drug(s)`);
 
-      updateStep("risk", "active", `Classifying risk scores...`);
+      updateStep("risk", "active", `Computing risk via CPIC phenotype rules...`);
+      await new Promise(r => setTimeout(r, 400));
+      updateStep("risk", "completed", `Risk classified deterministically for ${selectedDrugs.length} drug(s)`);
+
       setLlmLoading(true);
       updateStep("llm", "active", `Generating explanations via Groq Llama 3.3...`);
 
       // ── Single batch request — VCF parsed once, all drugs run in parallel server-side ──
       const batch = await analyzeMultipleDrugs(vcfFile, selectedDrugs);
 
-      updateStep("risk", "completed", `Risk classified for ${batch.total} drug(s)`);
       updateStep("llm", "completed", `Explanations generated for ${batch.total} drug(s)`);
       setLlmLoading(false);
       setDrugResults(batch.results);
@@ -168,11 +170,9 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-card-border bg-background/80 backdrop-blur-xl">
         <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[rgba(6,182,212,0.1)]">
-              <Dna className="w-7 h-7 text-accent" />
-            </div>
+            <img src="/logo.png" alt="Pharmavex" className="w-12 h-12 object-contain" />
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">PharmaGuard</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Pharmavex</h1>
               <p className="text-xs text-muted -mt-0.5">
                 Precision Pharmacogenomic Risk Engine
               </p>
@@ -362,7 +362,7 @@ export default function Home() {
 
       <footer className="border-t border-card-border mt-16">
         <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between text-xs text-muted">
-          <span>PharmaGuard v2.0 — Precision Pharmacogenomic Risk Engine</span>
+          <span>Pharmavex v2.0 — Precision Pharmacogenomic Risk Engine</span>
           <span>CPIC Guidelines • Groq Llama 3.3 XAI • RIFT 2026</span>
         </div>
       </footer>

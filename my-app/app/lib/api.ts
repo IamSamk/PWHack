@@ -1,4 +1,4 @@
-// ── PharmaGuard API Client ──
+// ── Pharmavex API Client ──
 
 import type { BatchAnalysisResult } from "./types";
 
@@ -28,7 +28,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     // Network-level failure (backend not running, blocked by firewall, etc.)
     throw new APIError(
       0,
-      `Cannot reach the PharmaGuard backend at ${API_BASE}. Make sure it is running (uvicorn app.main:app --reload from the backend/ folder).`
+      `Cannot reach the Pharmavex backend at ${API_BASE}. Make sure it is running (uvicorn app.main:app --reload from the backend/ folder).`
     );
   }
   if (!res.ok) {

@@ -8,7 +8,7 @@ interface JSONViewerProps {
   filename?: string;
 }
 
-export default function JSONViewer({ data, filename = "pharmaguard_result.json" }: JSONViewerProps) {
+export default function JSONViewer({ data, filename = "pharmavex_result.json" }: JSONViewerProps) {
   const [copied, setCopied] = useState(false);
 
   const jsonString = JSON.stringify(data, null, 2);

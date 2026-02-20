@@ -56,7 +56,6 @@ def _build_response(engine_result: dict, pathway: list, explanation: dict) -> di
         },
         "clinical_recommendation": rec,
         "llm_generated_explanation": explanation,
-        "pathway": pathway,
         "quality_metrics": {
             "vcf_parsing_success": True,
         },

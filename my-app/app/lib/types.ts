@@ -1,4 +1,4 @@
-// ── PharmaGuard Type Definitions ──
+// ── Pharmavex Type Definitions ──
 
 export interface DetectedVariant {
   rsid: string;
@@ -66,7 +66,6 @@ export interface DrugAnalysisResult {
   pharmacogenomic_profile: PharmacogenomicProfile;
   clinical_recommendation: ClinicalRecommendation;
   llm_generated_explanation: LLMExplanation;
-  pathway?: PathwayStep[];
   quality_metrics: QualityMetrics;
 }
 

@@ -29,11 +29,11 @@ function buildCoverHTML(results: DrugAnalysisResult[]): string {
     year: "numeric", month: "long", day: "numeric",
   });
   return `
-    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;min-height:1131px;box-sizing:border-box;">
+    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Roboto Mono',ui-monospace,monospace;padding:48px;width:800px;min-height:1131px;box-sizing:border-box;">
       <div style="border-bottom:1px solid rgba(6,182,212,0.2);padding-bottom:24px;margin-bottom:28px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <h1 style="font-size:24px;font-weight:700;color:#06B6D4;margin:0;letter-spacing:-.02em;">PharmaGuard</h1>
+            <h1 style="font-size:24px;font-weight:700;color:#06B6D4;margin:0;letter-spacing:-.02em;">Pharmavex</h1>
             <p style="font-size:12px;color:#64748b;margin:3px 0 0 0;">Precision Pharmacogenomic Risk Report</p>
           </div>
           <div style="text-align:right;">
@@ -55,7 +55,7 @@ function buildCoverHTML(results: DrugAnalysisResult[]): string {
         </div>`;
       }).join("")}
       <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:14px;margin-top:24px;font-size:9px;color:#334155;display:flex;justify-content:space-between;">
-        <span>PharmaGuard v2.0 · RIFT 2026 Hackathon</span>
+        <span>Pharmavex v2.0 · RIFT 2026 Hackathon</span>
         <span>For research and demonstration purposes only</span>
       </div>
     </div>`;
@@ -98,7 +98,7 @@ function buildDrugPageHTML(r: DrugAnalysisResult): string {
     : "";
 
   return `
-    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;padding:48px;width:800px;min-height:1131px;box-sizing:border-box;">
+    <div style="background:#0a0e1a;color:#e2e8f0;font-family:'Roboto Mono',ui-monospace,monospace;padding:48px;width:800px;min-height:1131px;box-sizing:border-box;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid rgba(6,182,212,0.15);">
         <div>
           <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Drug Analysis Report</div>
@@ -134,7 +134,7 @@ function buildDrugPageHTML(r: DrugAnalysisResult): string {
       </div>
       ${recSection}
       <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;margin-top:24px;font-size:9px;color:#334155;display:flex;justify-content:space-between;">
-        <span>PharmaGuard v2.0 · RIFT 2026</span>
+        <span>Pharmavex v2.0 · RIFT 2026</span>
         <span>Patient ID: ${r.patient_id?.slice(0, 8) ?? "N/A"}</span>
       </div>
     </div>`;
