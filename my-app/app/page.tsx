@@ -170,7 +170,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-card-border bg-background/80 backdrop-blur-xl">
         <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Pharmavex" className="w-12 h-12 object-contain" />
+            <img src="/pharmavex.png" alt="Pharmavex" className="w-12 h-12 object-contain" />
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Pharmavex</h1>
               <p className="text-xs text-muted -mt-0.5">

@@ -9,10 +9,8 @@ import {
   ShieldQuestion,
   ChevronDown,
   Dna,
-  Route,
 } from "lucide-react";
 import type { DrugAnalysisResult } from "../lib/types";
-import PathwayVisualization from "./PathwayVisualization";
 import DoctorAvatar from "./DoctorAvatar";
 
 interface DrugReportCardProps {
@@ -38,7 +36,6 @@ export default function DrugReportCard({ result }: DrugReportCardProps) {
   const pgx = result.pharmacogenomic_profile;
   const rec = result.clinical_recommendation;
   const explanation = result.llm_generated_explanation;
-  const pathway = result.pathway;
   const config = getRiskConfig(risk.risk_label);
   const Icon = config.icon;
 
@@ -94,19 +91,6 @@ export default function DrugReportCard({ result }: DrugReportCardProps) {
           <span className="text-[10px] text-muted mt-1">Confidence</span>
         </div>
       </div>
-
-      {/* ── Pathway ── */}
-      {pathway && pathway.length > 0 && (
-        <div className="border-t border-[rgba(255,255,255,0.05)]">
-          <div className="flex items-center gap-2 px-6 pt-3 pb-0">
-            <Route className="w-3.5 h-3.5 text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-accent">
-              Pharmacogenomic Pathway
-            </span>
-          </div>
-          <PathwayVisualization steps={pathway} />
-        </div>
-      )}
 
       {/* ── Doctor + AI Explanation ── */}
       <div className="border-t border-[rgba(255,255,255,0.05)] px-6 py-5">
