@@ -12,7 +12,7 @@ const RISK_COLORS: Record<string, string> = {
   safe: "#10B981",
   "adjust dosage": "#F59E0B",
   toxic: "#EF4444",
-  ineffective: "#8B5CF6",
+  ineffective: "#EF4444",
   unknown: "#6B7280",
 };
 

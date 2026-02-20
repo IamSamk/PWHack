@@ -430,6 +430,11 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
     phased_any = False
     unphased_het_count = 0
 
+    # Confirmed-wildtype tracking: 0/0 calls at known pharmacogenomic positions
+    confirmed_wildtype_count: int = 0
+    wt_min_gq: float | None = None
+    wt_min_dp: float | None = None
+
     # Deduplicate: track which non-wildtype stars have already been counted per haplotype
     counted_hap1: set[str] = set()
     counted_hap2: set[str] = set()
@@ -461,12 +466,6 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
                 pass
             break  # first sample only
 
-        # Track quality minimums
-        if gq_val is not None:
-            min_gq = min(min_gq, gq_val) if min_gq is not None else gq_val
-        if dp_val is not None:
-            min_dp = min(min_dp, dp_val) if min_dp is not None else dp_val
-
         # ── Resolve alleles, skip 0/0 (homozygous ref) ──
         allele1: str
         allele2: str
@@ -485,7 +484,14 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
             # Skip homozygous reference (0/0) or all-missing (./.) — no variant information
             non_ref_parts = [p.strip() for p in parts[:2] if p.strip() not in ("0", ".", "")]
             if not non_ref_parts:
-                continue  # 0/0 or ./.  — nothing to do
+                # This is a confirmed wildtype call at a known pharmacogenomic position.
+                # Count it and record its quality — high-quality 0/0 confirms wildtype.
+                confirmed_wildtype_count += 1
+                if gq_val is not None:
+                    wt_min_gq = min(wt_min_gq, gq_val) if wt_min_gq is not None else gq_val
+                if dp_val is not None:
+                    wt_min_dp = min(wt_min_dp, dp_val) if wt_min_dp is not None else dp_val
+                continue  # 0/0 or ./.  — no variant to record
 
             allele_options = [record["ref"]] + record.get("alt_alleles", [])
             alleles_out: list[str] = []
@@ -511,6 +517,12 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
                 # Unphased heterozygous
                 has_unphased_het = True
                 unphased_het_count += 1
+
+        # Track quality minimums — only for variants we actually use (not 0/0)
+        if gq_val is not None:
+            min_gq = min(min_gq, gq_val) if min_gq is not None else gq_val
+        if dp_val is not None:
+            min_dp = min(min_dp, dp_val) if min_dp is not None else dp_val
 
         # ── Map alleles → star alleles ──
         star1 = allele_map.get(allele1, default_star)
@@ -593,6 +605,9 @@ def infer_star_alleles_for_gene(gene: str, gene_variants: list[dict]) -> dict:
         "has_unphased_het": has_unphased_het,
         "min_gq": min_gq,
         "min_dp": min_dp,
+        "confirmed_wildtype_count": confirmed_wildtype_count,
+        "wt_min_gq": wt_min_gq,
+        "wt_min_dp": wt_min_dp,
     }
 
 
@@ -646,6 +661,9 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
                 "has_unphased_het": False,
                 "min_gq": None,
                 "min_dp": None,
+                "confirmed_wildtype_count": 0,
+                "wt_min_gq": None,
+                "wt_min_dp": None,
                 "interpretation": (
                     f"No pharmacogenomic variants detected in {gene}. "
                     f"Assumed wildtype ({default_star}/{default_star})."
@@ -671,6 +689,9 @@ def build_genomic_profile(parsed_vcf: dict) -> dict[str, Any]:
                 "has_unphased_het": star_result.get("has_unphased_het", False),
                 "min_gq": star_result.get("min_gq"),
                 "min_dp": star_result.get("min_dp"),
+                "confirmed_wildtype_count": star_result.get("confirmed_wildtype_count", 0),
+                "wt_min_gq": star_result.get("wt_min_gq"),
+                "wt_min_dp": star_result.get("wt_min_dp"),
                 "interpretation": (
                     f"{gene} diplotype {star_result['diplotype']} → "
                     f"activity score {activity} → {phenotype}. "

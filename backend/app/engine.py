@@ -64,6 +64,9 @@ def compute_dynamic_confidence(
     has_unphased_het: bool = False,
     min_gq: float | None = None,
     min_dp: float | None = None,
+    confirmed_wildtype_count: int = 0,
+    wt_min_gq: float | None = None,
+    wt_min_dp: float | None = None,
 ) -> float:
     """
     Compute confidence dynamically from actual genomic evidence.
@@ -83,8 +86,25 @@ def compute_dynamic_confidence(
     flags = quality_flags or []
 
     # Base confidence from variant count
-    if n == 0:
-        base = 0.55   # wildtype assumed — moderate, not certain
+    if n == 0 and confirmed_wildtype_count > 0:
+        # Wildtype CONFIRMED by explicit 0/0 call(s) at known pharmacogenomic positions.
+        # Treat exactly like having that many real confirming variants — same base table.
+        cwt = confirmed_wildtype_count
+        if cwt >= 4:
+            base = 0.89
+        elif cwt >= 3:
+            base = 0.84
+        elif cwt >= 2:
+            base = 0.76
+        else:
+            base = 0.67
+        # Penalise if the wildtype calls themselves had low quality
+        if wt_min_gq is not None and wt_min_gq < 20:
+            quality_penalty += 0.10 if wt_min_gq < 10 else 0.05
+        if wt_min_dp is not None and wt_min_dp < 10:
+            quality_penalty += 0.10 if wt_min_dp < 5 else 0.05
+    elif n == 0:
+        base = 0.55   # wildtype assumed — no VCF evidence, moderate confidence
     elif n == 1:
         base = 0.67
     elif n == 2:
@@ -177,6 +197,9 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
     has_unphased_het = gene_profile.get("has_unphased_het", False)
     min_gq = gene_profile.get("min_gq")
     min_dp = gene_profile.get("min_dp")
+    confirmed_wildtype_count = gene_profile.get("confirmed_wildtype_count", 0)
+    wt_min_gq = gene_profile.get("wt_min_gq")
+    wt_min_dp = gene_profile.get("wt_min_dp")
 
     # Look up the phenotype rule
     rule = phenotype_rules.get(phenotype, None)
@@ -204,6 +227,9 @@ def assess_drug_risk(drug: str, genomic_profile: dict) -> dict[str, Any]:
         has_unphased_het=has_unphased_het,
         min_gq=min_gq,
         min_dp=min_dp,
+        confirmed_wildtype_count=confirmed_wildtype_count,
+        wt_min_gq=wt_min_gq,
+        wt_min_dp=wt_min_dp,
     )
 
     # Format detected variants for output

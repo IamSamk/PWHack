@@ -21,7 +21,7 @@ const RISK_CONFIG: Record<string, { color: string; bg: string; ring: string; ico
   safe: { color: "text-safe", bg: "bg-[rgba(34,197,94,0.06)]", ring: "border-safe/25", icon: Shield },
   "adjust dosage": { color: "text-warn", bg: "bg-[rgba(234,179,8,0.06)]", ring: "border-warn/25", icon: ShieldAlert },
   toxic: { color: "text-danger", bg: "bg-[rgba(239,68,68,0.06)]", ring: "border-danger/25", icon: ShieldX },
-  ineffective: { color: "text-ineffective", bg: "bg-[rgba(139,92,246,0.06)]", ring: "border-ineffective/25", icon: ShieldOff },
+  ineffective: { color: "text-danger", bg: "bg-[rgba(239,68,68,0.06)]", ring: "border-danger/25", icon: ShieldOff },
   unknown: { color: "text-muted", bg: "bg-[rgba(100,116,139,0.06)]", ring: "border-muted/25", icon: ShieldQuestion },
 };
 

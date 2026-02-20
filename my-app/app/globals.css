@@ -15,8 +15,8 @@
   --danger-bg: rgba(239, 68, 68, 0.1);
   --muted: #64748b;
   --muted-bg: rgba(100, 116, 139, 0.1);
-  --ineffective: #8b5cf6;
-  --ineffective-bg: rgba(139, 92, 246, 0.1);
+  --ineffective: #ef4444;
+  --ineffective-bg: rgba(239, 68, 68, 0.1);
 }
 
 @theme inline {
