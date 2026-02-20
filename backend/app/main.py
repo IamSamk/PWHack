@@ -17,7 +17,7 @@ from app.engine import assess_drug_risk, generate_pathway_steps
 from app.llm_service import generate_explanation
 
 app = FastAPI(
-    title="PharmaGuard API",
+    title="Pharmavex API",
     description="Precision Pharmacogenomic Risk Engine — CPIC-aligned drug safety analysis from VCF data.",
     version="2.0.0",
 )
