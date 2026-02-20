@@ -166,14 +166,14 @@ export default function Home() {
     <div className="min-h-screen w-full">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-card-border bg-background/80 backdrop-blur-xl">
-        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[rgba(6,182,212,0.1)]">
-              <Dna className="w-5 h-5 text-accent" />
+            <div className="p-2.5 rounded-xl bg-[rgba(6,182,212,0.1)]">
+              <Dna className="w-7 h-7 text-accent" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">PharmaGuard</h1>
-              <p className="text-[10px] text-muted -mt-0.5">
+              <h1 className="text-2xl font-bold tracking-tight">PharmaGuard</h1>
+              <p className="text-xs text-muted -mt-0.5">
                 Precision Pharmacogenomic Risk Engine
               </p>
             </div>
@@ -211,23 +211,23 @@ export default function Home() {
 
         {/* ── INPUT PHASE ── */}
         {phase === "input" && (
-          <div className="max-w-2xl mx-auto space-y-5 animate-fade-slide-up">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(6,182,212,0.08)] text-accent text-xs font-medium mb-4">
-                <Dna className="w-3.5 h-3.5" />
+          <div className="max-w-3xl mx-auto space-y-7 animate-fade-slide-up">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[rgba(6,182,212,0.08)] text-accent text-sm font-medium mb-5">
+                <Dna className="w-4 h-4" />
                 CPIC-Aligned Analysis
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold">
+              <h2 className="text-3xl sm:text-4xl font-bold">
                 Pharmacogenomic Risk Assessment
               </h2>
-              <p className="text-sm text-muted mt-2 max-w-lg mx-auto">
+              <p className="text-base text-muted mt-3 max-w-xl mx-auto">
                 Upload a VCF file and select drugs to receive personalized risk
                 assessments powered by CPIC guidelines and AI explanations.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted mb-2">
+              <label className="block text-sm font-semibold text-muted mb-2">
                 Genomic Data
               </label>
               <VCFUpload
@@ -239,7 +239,7 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted mb-2">
+              <label className="block text-sm font-semibold text-muted mb-2">
                 Drugs to Analyze
               </label>
               <DrugSelector
@@ -254,15 +254,15 @@ export default function Home() {
               onClick={handleAnalyze}
               disabled={!canAnalyze}
               className={`
-                w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl
-                text-sm font-semibold transition-all duration-300
+                w-full flex items-center justify-center gap-2.5 px-6 py-5 rounded-xl
+                text-lg font-bold transition-all duration-300
                 ${canAnalyze
                   ? "bg-accent text-background hover:bg-accent-dim cursor-pointer shadow-lg shadow-accent/20"
                   : "bg-card border border-card-border text-muted cursor-not-allowed"
                 }
               `}
             >
-              <Zap className="w-4 h-4" />
+              <Zap className="w-5 h-5" />
               Analyze {selectedDrugs.length > 0 ? `${selectedDrugs.length} Drug${selectedDrugs.length > 1 ? "s" : ""}` : ""}
             </button>
           </div>

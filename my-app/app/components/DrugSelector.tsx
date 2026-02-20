@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown, X, Pill, Plus } from "lucide-react";
+import { ChevronDown, X, Pill } from "lucide-react";
 
 interface DrugSelectorProps {
   availableDrugs: string[];
@@ -60,22 +60,22 @@ export default function DrugSelector({
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
         className={`
-          w-full flex items-center justify-between px-4 py-3 rounded-xl
-          border-2 border-card-border bg-card text-sm
+          w-full flex items-center justify-between px-5 py-4 rounded-xl
+          border-2 border-card-border bg-card text-base
           transition-all duration-200
           ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-accent/50 cursor-pointer"}
           ${open ? "border-accent" : ""}
         `}
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <Pill className="w-4 h-4 text-accent" />
+          <Pill className="w-5 h-5 text-accent" />
           {selectedDrugs.length === 0 ? (
-            <span className="text-muted">Select drugs or type a custom drug name...</span>
+            <span className="text-muted text-base">Select drugs or type a custom drug name...</span>
           ) : (
             selectedDrugs.map((drug) => (
               <span
                 key={drug}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-semibold rounded-md ${
                   customDrugs.includes(drug)
                     ? "bg-[rgba(168,85,247,0.1)] text-purple-400"
                     : "bg-[rgba(6,182,212,0.1)] text-accent"
@@ -84,7 +84,7 @@ export default function DrugSelector({
                 {drug}
                 {!disabled && (
                   <X
-                    className="w-3 h-3 cursor-pointer hover:text-danger"
+                    className="w-3.5 h-3.5 cursor-pointer hover:text-danger"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggle(drug);
@@ -96,14 +96,14 @@ export default function DrugSelector({
           )}
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-5 h-5 text-muted transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-card border-2 border-card-border rounded-xl shadow-xl overflow-hidden animate-fade-slide-up">
           {/* Custom drug input */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-card-border">
+          <div className="flex items-center gap-2 px-3 py-3 border-b border-card-border">
             <input
               ref={inputRef}
               type="text"
@@ -115,37 +115,36 @@ export default function DrugSelector({
                   addCustomDrug();
                 }
               }}
-              placeholder="Type any drug name + Enter"
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted outline-none"
+              placeholder="Type any drug name..."
+              className="flex-1 bg-transparent text-base text-foreground placeholder:text-muted outline-none py-0.5"
             />
             <button
               onClick={addCustomDrug}
               disabled={!customInput.trim()}
-              className="p-1 rounded-md bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-30 cursor-pointer"
-              title="Add custom drug"
+              className="px-3 py-1.5 rounded-lg bg-accent text-background text-sm font-bold hover:bg-accent/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
+              OK
             </button>
           </div>
 
-          <div className="flex items-center justify-between px-3 py-2 border-b border-card-border">
-            <span className="text-[10px] text-muted uppercase tracking-wider">CPIC Drugs</span>
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-card-border">
+            <span className="text-xs text-muted uppercase tracking-wider">CPIC Drugs</span>
             <div className="flex gap-3">
               <button
                 onClick={selectAll}
-                className="text-xs text-accent hover:underline cursor-pointer"
+                className="text-sm text-accent hover:underline cursor-pointer"
               >
                 Select all
               </button>
               <button
                 onClick={clearAll}
-                className="text-xs text-muted hover:text-danger cursor-pointer"
+                className="text-sm text-muted hover:text-danger cursor-pointer"
               >
                 Clear
               </button>
             </div>
           </div>
-          <div className="max-h-48 overflow-y-auto">
+          <div className="max-h-56 overflow-y-auto">
             {availableDrugs.map((drug) => {
               const selected = selectedDrugs.includes(drug);
               return (
@@ -153,14 +152,14 @@ export default function DrugSelector({
                   key={drug}
                   onClick={() => toggle(drug)}
                   className={`
-                    w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left
+                    w-full flex items-center gap-3 px-4 py-3 text-base text-left
                     transition-colors cursor-pointer
                     ${selected ? "bg-[rgba(6,182,212,0.08)] text-accent" : "hover:bg-[rgba(255,255,255,0.03)]"}
                   `}
                 >
                   <div
                     className={`
-                      w-4 h-4 rounded border-2 flex items-center justify-center text-[10px]
+                      w-5 h-5 rounded border-2 flex items-center justify-center text-xs
                       transition-all
                       ${selected ? "border-accent bg-accent text-background" : "border-muted"}
                     `}
